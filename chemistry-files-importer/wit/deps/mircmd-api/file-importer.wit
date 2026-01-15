@@ -1,0 +1,5 @@
+package mircmd:api;
+
+world file-importer {
+    export load: func(file-path: string) -> result<list<u8>, string>;
+}

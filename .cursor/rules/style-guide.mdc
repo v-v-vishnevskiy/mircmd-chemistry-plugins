@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+- Use PascalCase for class names.
+- Use snake_case for packages, modules, functions, and variable names.
+- Sort imports alphabetically.
+- Keep functions under 25 lines when possible.
+- Write all comments in English.

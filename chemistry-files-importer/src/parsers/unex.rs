@@ -66,8 +66,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
     };
 
     let mut molecules: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    let mut mol_cart_set_number: std::collections::HashMap<String, i32> =
-        std::collections::HashMap::new();
+    let mut mol_cart_set_number: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
 
     let mut lines = content.lines().peekable();
 
@@ -89,9 +88,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
                 idx
             };
 
-            let set_num = mol_cart_set_number
-                .entry(molecule_name.clone())
-                .or_insert(0);
+            let set_num = mol_cart_set_number.entry(molecule_name.clone()).or_insert(0);
             *set_num += 1;
 
             // Skip header of the table (3 lines)
@@ -135,8 +132,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
             let at_coord_node = Node {
                 name: format!("Set#{}", set_num),
                 kind: "mircmd:chemistry:atomic_coordinates".to_string(),
-                data: serde_json::to_vec(&coords)
-                    .map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
+                data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };
 
@@ -157,8 +153,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
     };
 
     let mut molecules: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    let mut mol_cart_set_number: std::collections::HashMap<String, i32> =
-        std::collections::HashMap::new();
+    let mut mol_cart_set_number: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
 
     let mut lines = content.lines().peekable();
 
@@ -185,9 +180,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
                 idx
             };
 
-            let set_num = mol_cart_set_number
-                .entry(molecule_name.clone())
-                .or_insert(0);
+            let set_num = mol_cart_set_number.entry(molecule_name.clone()).or_insert(0);
             *set_num += 1;
 
             let mut xyz_format = Unex2XyzFormat::Invalid;
@@ -202,10 +195,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
                             "UNEX" => xyz_format = Unex2XyzFormat::Unex,
                             "MOL" => xyz_format = Unex2XyzFormat::Mol,
                             _ => {
-                                return Err(format!(
-                                    "Invalid or unknown XYZ format {}",
-                                    format_parts[1]
-                                ));
+                                return Err(format!("Invalid or unknown XYZ format {}", format_parts[1]));
                             }
                         }
                     }
@@ -266,15 +256,9 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
                                     .map_err(|_| format!("Invalid atom symbol {}", items[0]))?
                             };
 
-                            let x: f64 = items[1]
-                                .parse()
-                                .map_err(|_| "Invalid x coordinate".to_string())?;
-                            let y: f64 = items[2]
-                                .parse()
-                                .map_err(|_| "Invalid y coordinate".to_string())?;
-                            let z: f64 = items[3]
-                                .parse()
-                                .map_err(|_| "Invalid z coordinate".to_string())?;
+                            let x: f64 = items[1].parse().map_err(|_| "Invalid x coordinate".to_string())?;
+                            let y: f64 = items[2].parse().map_err(|_| "Invalid y coordinate".to_string())?;
+                            let z: f64 = items[3].parse().map_err(|_| "Invalid z coordinate".to_string())?;
 
                             atomic_num.push(at_num);
                             atom_coord_x.push(x);
@@ -296,8 +280,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
             let at_coord_node = Node {
                 name: format!("Set#{}", set_num),
                 kind: "mircmd:chemistry:atomic_coordinates".to_string(),
-                data: serde_json::to_vec(&coords)
-                    .map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
+                data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };
 
@@ -312,8 +295,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     let first_line = content.lines().next().unwrap_or("");
 
-    let version =
-        get_format_version(first_line).ok_or_else(|| "Invalid UNEX file format.".to_string())?;
+    let version = get_format_version(first_line).ok_or_else(|| "Invalid UNEX file format.".to_string())?;
 
     // UNEX 1.x
     if version < 2_000_000 {

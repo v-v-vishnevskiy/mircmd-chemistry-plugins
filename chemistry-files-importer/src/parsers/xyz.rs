@@ -49,9 +49,8 @@ pub fn test(file_path: &str) -> Result<bool, String> {
     // Second line is comment, it can be anything (even empty)
     // Validate coordinate cards starting from line 3 (index 2)
     // Regex pattern from Python: ^([A-Z][a-z]?|[0-9]+)([\s]+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}$
-    let card_validator =
-        Regex::new(r"^([A-Z][a-z]?|[0-9]+)([\s]+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}$")
-            .map_err(|e| format!("Failed to compile regex: {}", e))?;
+    let card_validator = Regex::new(r"^([A-Z][a-z]?|[0-9]+)([\s]+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}$")
+        .map_err(|e| format!("Failed to compile regex: {}", e))?;
 
     // Validate available cards (from line 3 up to numat + 2, limited by what we've read)
     let cards_to_check = std::cmp::min(numat, MAX_VALIDATION_LINES.saturating_sub(2));
@@ -98,12 +97,9 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                 if trimmed.is_empty() {
                     break;
                 }
-                num_atoms = trimmed.parse::<usize>().map_err(|_| {
-                    format!(
-                        "Invalid line {}, expected number of atoms.",
-                        line_number + 1
-                    )
-                })?;
+                num_atoms = trimmed
+                    .parse::<usize>()
+                    .map_err(|_| format!("Invalid line {}, expected number of atoms.", line_number + 1))?;
                 if num_atoms == 0 {
                     return Err(format!(
                         "Invalid number of atoms {} at line {}.",
@@ -141,15 +137,15 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                     },
                 };
 
-                let coord_x: f64 = items[1].parse().map_err(|_| {
-                    format!("Invalid coordinate value(s) at line {}.", line_number + 1)
-                })?;
-                let coord_y: f64 = items[2].parse().map_err(|_| {
-                    format!("Invalid coordinate value(s) at line {}.", line_number + 1)
-                })?;
-                let coord_z: f64 = items[3].parse().map_err(|_| {
-                    format!("Invalid coordinate value(s) at line {}.", line_number + 1)
-                })?;
+                let coord_x: f64 = items[1]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_y: f64 = items[2]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_z: f64 = items[3]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
 
                 num_read_cards += 1;
                 atom_atomic_num.push(atomic_num);

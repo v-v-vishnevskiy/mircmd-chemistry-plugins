@@ -82,12 +82,9 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                     ));
                 }
 
-                num_atoms = items[0].parse::<usize>().map_err(|_| {
-                    format!(
-                        "Invalid control line {}, expected number of atoms.",
-                        line_number + 1
-                    )
-                })?;
+                num_atoms = items[0]
+                    .parse::<usize>()
+                    .map_err(|_| format!("Invalid control line {}, expected number of atoms.", line_number + 1))?;
 
                 if items.len() < 2 {
                     return Err(format!(
@@ -96,12 +93,9 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                     ));
                 }
 
-                let num_bonds: i32 = items[1].parse().map_err(|_| {
-                    format!(
-                        "Invalid control line {}, expected number of bonds.",
-                        line_number + 1
-                    )
-                })?;
+                let num_bonds: i32 = items[1]
+                    .parse()
+                    .map_err(|_| format!("Invalid control line {}, expected number of bonds.", line_number + 1))?;
 
                 if num_atoms == 0 {
                     return Err(format!(
@@ -130,37 +124,24 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                 let items: Vec<&str> = line.trim().split_whitespace().collect();
 
                 if items.len() < 4 {
-                    return Err(format!(
-                        "Invalid atom coordinate value(s) at line {}.",
-                        line_number + 1
-                    ));
+                    return Err(format!("Invalid atom coordinate value(s) at line {}.", line_number + 1));
                 }
 
-                let coord_x: f64 = items[0].parse().map_err(|_| {
-                    format!(
-                        "Invalid atom coordinate value(s) at line {}.",
-                        line_number + 1
-                    )
-                })?;
-                let coord_y: f64 = items[1].parse().map_err(|_| {
-                    format!(
-                        "Invalid atom coordinate value(s) at line {}.",
-                        line_number + 1
-                    )
-                })?;
-                let coord_z: f64 = items[2].parse().map_err(|_| {
-                    format!(
-                        "Invalid atom coordinate value(s) at line {}.",
-                        line_number + 1
-                    )
-                })?;
+                let coord_x: f64 = items[0]
+                    .parse()
+                    .map_err(|_| format!("Invalid atom coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_y: f64 = items[1]
+                    .parse()
+                    .map_err(|_| format!("Invalid atom coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_z: f64 = items[2]
+                    .parse()
+                    .map_err(|_| format!("Invalid atom coordinate value(s) at line {}.", line_number + 1))?;
 
                 let atomic_num = match items[3] {
                     "X" => -1,
                     "Q" => -2,
-                    symbol => symbol_to_atomic_number(symbol).map_err(|_| {
-                        format!("Invalid atom symbol at line {}.", line_number + 1)
-                    })?,
+                    symbol => symbol_to_atomic_number(symbol)
+                        .map_err(|_| format!("Invalid atom symbol at line {}.", line_number + 1))?,
                 };
 
                 num_read_at_cards += 1;

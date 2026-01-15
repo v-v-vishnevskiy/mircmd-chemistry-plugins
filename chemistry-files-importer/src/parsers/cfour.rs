@@ -101,8 +101,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
             let at_coord_node = Node {
                 name: format!("Set#{}", cart_set_number),
                 kind: "mircmd:chemistry:atomic_coordinates".to_string(),
-                data: serde_json::to_vec(&coords)
-                    .map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
+                data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };
 

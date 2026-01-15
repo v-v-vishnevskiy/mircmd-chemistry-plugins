@@ -1,0 +1,7 @@
+{
+    "makefile.configureOnOpen": false,
+    "rust-analyzer.linkedProjects": [
+        "./chemistry-files-importer/Cargo.toml",
+        "./chemistry-molecular-visualizer/Cargo.toml"
+    ]
+}

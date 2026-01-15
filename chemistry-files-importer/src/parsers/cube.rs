@@ -15,10 +15,7 @@ const BOHR2ANGSTROM: f64 = 0.529177210903;
 fn parse_grid_line(line: &str, line_number: usize) -> Result<(i32, Vec<f64>), String> {
     let parts: Vec<&str> = line.trim().split_whitespace().collect();
     if parts.len() < 4 {
-        return Err(format!(
-            "Invalid grid line at line {}, expected 4 values.",
-            line_number
-        ));
+        return Err(format!("Invalid grid line at line {}, expected 4 values.", line_number));
     }
 
     let n: i32 = parts[0]
@@ -248,16 +245,15 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     }
 
     // Read volumetric data
-    let total_points =
-        (steps_number[0] as usize) * (steps_number[1] as usize) * (steps_number[2] as usize);
+    let total_points = (steps_number[0] as usize) * (steps_number[1] as usize) * (steps_number[2] as usize);
     let mut cube_data_flat: Vec<f64> = Vec::with_capacity(total_points);
 
     // Collect remaining lines and parse all values
     for (line_number, data_line) in lines {
         for value_str in data_line.trim().split_whitespace() {
-            let value: f64 = value_str.parse().map_err(|_| {
-                format!("Invalid volumetric data value at line {}.", line_number + 1)
-            })?;
+            let value: f64 = value_str
+                .parse()
+                .map_err(|_| format!("Invalid volumetric data value at line {}.", line_number + 1))?;
             cube_data_flat.push(value);
         }
     }
@@ -309,8 +305,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     let at_coord_node = Node {
         name: "CubeMol".to_string(),
         kind: "mircmd:chemistry:atomic_coordinates".to_string(),
-        data: serde_json::to_vec(&coords)
-            .map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
+        data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
         children: vec![],
     };
 
@@ -318,8 +313,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     let result = Node {
         name: file_name.to_string(),
         kind: "mircmd:chemistry:volume_cube".to_string(),
-        data: serde_json::to_vec(&volume_cube)
-            .map_err(|e| format!("Failed to serialize volume cube: {}", e))?,
+        data: serde_json::to_vec(&volume_cube).map_err(|e| format!("Failed to serialize volume cube: {}", e))?,
         children: vec![at_coord_node],
     };
 

@@ -1,0 +1,7 @@
+target: core
+type: FileImporter
+metadata:
+  name: Chemistry Files Importer
+  version: 1.0.0
+  publisher: mircmd
+  description: Imports files as XYZ, UNEX, MDL Mol V2000 and Cfour

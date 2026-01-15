@@ -30,17 +30,12 @@ const PARSERS: &[(&str, ParserTestFn, ParserParseFn)] = &[
     ("Gaussian Cube", parsers::cube::test, parsers::cube::parse),
     ("UNEX", parsers::unex::test, parsers::unex::parse),
     ("Cfour", parsers::cfour::test, parsers::cfour::parse),
-    (
-        "MDL Mol V2000",
-        parsers::mdlmol2000::test,
-        parsers::mdlmol2000::parse,
-    ),
+    ("MDL Mol V2000", parsers::mdlmol2000::test, parsers::mdlmol2000::parse),
 ];
 
 impl Guest for ChemistryImporter {
     fn load(file_path: String) -> Result<Vec<u8>, String> {
-        let content = std::fs::read_to_string(&file_path)
-            .map_err(|e| format!("Failed to read file: {}", e))?;
+        let content = std::fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {}", e))?;
 
         let file_name = std::path::Path::new(&file_path)
             .file_name()
@@ -53,8 +48,7 @@ impl Guest for ChemistryImporter {
             match test_fn(&file_path) {
                 Ok(true) => match parse_fn(&content, file_name) {
                     Ok(node) => {
-                        return serde_json::to_vec(&node)
-                            .map_err(|e| format!("Failed to serialize result: {}", e));
+                        return serde_json::to_vec(&node).map_err(|e| format!("Failed to serialize result: {}", e));
                     }
                     Err(e) => {
                         errors.push(format!("{}: {}", name, e));

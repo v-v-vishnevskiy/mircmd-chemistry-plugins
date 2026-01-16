@@ -1,0 +1,12 @@
+---
+alwaysApply: true
+---
+
+- Do not generate documentation until I explicitly ask.
+- Do not generate files with examples of usage.
+- Do not suggest to run generated files.
+- Do not generate tests until I explicitly ask.
+
+Tech stack:
+- Rust >= 1.92
+- WebAssembly (WASM) with Component Interface

@@ -1,0 +1,180 @@
+// Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
+// Licensed under the MIT License
+
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+
+use regex::Regex;
+
+use crate::types::{AtomicCoordinates, Molecule, Node};
+use crate::utils::symbol_to_atomic_number;
+
+#[derive(PartialEq)]
+enum ParserState {
+    Init,
+    Comment,
+    Cards,
+}
+
+const MAX_VALIDATION_LINES: usize = 10;
+
+/// Validates if the file is in XYZ format by reading only first few lines.
+/// Returns true if the file appears to be a valid XYZ file, false otherwise.
+pub fn test(file_path: &str) -> Result<bool, String> {
+    let path = Path::new(file_path);
+    let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let reader = BufReader::new(file);
+
+    let lines: Vec<String> = reader
+        .lines()
+        .take(MAX_VALIDATION_LINES)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    if lines.is_empty() {
+        return Ok(false);
+    }
+
+    // First line must be a number of atoms
+    let numat: usize = match lines[0].trim().parse() {
+        Ok(n) => n,
+        Err(_) => return Ok(false),
+    };
+
+    if numat == 0 {
+        return Ok(false);
+    }
+
+    // Second line is comment, it can be anything (even empty)
+    // Validate coordinate cards starting from line 3 (index 2)
+    // Regex pattern from Python: ^([A-Z][a-z]?|[0-9]+)([\s]+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}$
+    let card_validator = Regex::new(r"^([A-Z][a-z]?|[0-9]+)([\s]+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}$")
+        .map_err(|e| format!("Failed to compile regex: {}", e))?;
+
+    // Validate available cards (from line 3 up to numat + 2, limited by what we've read)
+    let cards_to_check = std::cmp::min(numat, MAX_VALIDATION_LINES.saturating_sub(2));
+    for i in 0..cards_to_check {
+        let line_idx = i + 2;
+        if line_idx >= lines.len() {
+            break;
+        }
+        if !card_validator.is_match(lines[line_idx].trim()) {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
+pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
+    let mut result = Node {
+        name: file_name.to_string(),
+        kind: "mircmd:chemistry:molecule".to_string(),
+        data: serde_json::to_vec(&Molecule {
+            n_atoms: 0,
+            atomic_num: vec![],
+            charge: 0,
+            name: file_name.to_string(),
+        })
+        .map_err(|e| format!("Failed to serialize molecule: {}", e))?,
+        children: vec![],
+    };
+
+    let mut state = ParserState::Init;
+    let mut num_atoms: usize = 0;
+    let mut num_read_cards: usize = 0;
+    let mut title = String::new();
+    let mut atom_atomic_num: Vec<i32> = vec![];
+    let mut atom_coord_x: Vec<f64> = vec![];
+    let mut atom_coord_y: Vec<f64> = vec![];
+    let mut atom_coord_z: Vec<f64> = vec![];
+
+    for (line_number, line) in content.lines().enumerate() {
+        match state {
+            ParserState::Init => {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    break;
+                }
+                num_atoms = trimmed
+                    .parse::<usize>()
+                    .map_err(|_| format!("Invalid line {}, expected number of atoms.", line_number + 1))?;
+                if num_atoms == 0 {
+                    return Err(format!(
+                        "Invalid number of atoms {} at line {}.",
+                        num_atoms,
+                        line_number + 1
+                    ));
+                }
+                state = ParserState::Comment;
+            }
+            ParserState::Comment => {
+                title = line.trim().to_string();
+                if title.is_empty() {
+                    title = format!("Set@line={}", line_number);
+                }
+                state = ParserState::Cards;
+                num_read_cards = 0;
+                atom_atomic_num = Vec::with_capacity(num_atoms);
+                atom_coord_x = Vec::with_capacity(num_atoms);
+                atom_coord_y = Vec::with_capacity(num_atoms);
+                atom_coord_z = Vec::with_capacity(num_atoms);
+            }
+            ParserState::Cards => {
+                let items: Vec<&str> = line.trim().split_whitespace().collect();
+                if items.len() < 4 {
+                    return Err(format!("Invalid atom card at line {}.", line_number + 1));
+                }
+
+                let atomic_num = match items[0].parse::<i32>() {
+                    Ok(num) => num,
+                    Err(_) => match items[0] {
+                        "X" => -1,
+                        "Q" => -2,
+                        symbol => symbol_to_atomic_number(symbol)
+                            .map_err(|_| format!("Invalid atom at line {}.", line_number + 1))?,
+                    },
+                };
+
+                let coord_x: f64 = items[1]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_y: f64 = items[2]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
+                let coord_z: f64 = items[3]
+                    .parse()
+                    .map_err(|_| format!("Invalid coordinate value(s) at line {}.", line_number + 1))?;
+
+                num_read_cards += 1;
+                atom_atomic_num.push(atomic_num);
+                atom_coord_x.push(coord_x);
+                atom_coord_y.push(coord_y);
+                atom_coord_z.push(coord_z);
+
+                if num_read_cards == num_atoms {
+                    let coords = AtomicCoordinates {
+                        atomic_num: atom_atomic_num.clone(),
+                        x: atom_coord_x.clone(),
+                        y: atom_coord_y.clone(),
+                        z: atom_coord_z.clone(),
+                    };
+
+                    let at_coord_node = Node {
+                        name: title.clone(),
+                        kind: "mircmd:chemistry:atomic_coordinates".to_string(),
+                        data: serde_json::to_vec(&coords)
+                            .map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
+                        children: vec![],
+                    };
+
+                    result.children.push(at_coord_node);
+                    state = ParserState::Init;
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}

@@ -1,10 +1,5 @@
 [workspace]
-members = [
-    "shared_lib",
-    "cartesian-editor",
-    "files-importer",
-    "molecular-visualizer",
-]
+members = ["shared_lib", "files-importer", "molecular-visualizer"]
 
 resolver = "2"
 

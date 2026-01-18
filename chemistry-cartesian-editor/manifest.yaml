@@ -1,0 +1,8 @@
+target: Ui
+type: Program
+metadata:
+  id: chemistry-cartesian-editor
+  name: Chemistry Cartesian Editor
+  version: 1.0.0
+  publisher: mircmd
+  description: Edits cartesian coordinates of molecules

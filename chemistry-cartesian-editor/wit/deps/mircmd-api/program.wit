@@ -1,0 +1,5 @@
+package mircmd:api;
+
+world program {
+    export render: func(data: list<u8>) -> string;
+}

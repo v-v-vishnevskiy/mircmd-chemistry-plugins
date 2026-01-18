@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "shared_lib",
+    "chemistry-cartesian-editor",
+    "chemistry-files-importer",
+    "chemistry-molecular-visualizer",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+shared_lib = { path = "./shared_lib" }

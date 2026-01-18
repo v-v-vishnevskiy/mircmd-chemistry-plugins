@@ -7,8 +7,8 @@ use std::path::Path;
 
 use regex::Regex;
 
-use crate::types::{AtomicCoordinates, Molecule, Node};
-use crate::utils::symbol_to_atomic_number;
+use shared_lib::periodic_table::get_element_by_symbol;
+use shared_lib::types::{AtomicCoordinates, Molecule, Node};
 
 #[derive(PartialEq)]
 enum ParserState {
@@ -129,12 +129,11 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
 
                 let atomic_num = match items[0].parse::<i32>() {
                     Ok(num) => num,
-                    Err(_) => match items[0] {
-                        "X" => -1,
-                        "Q" => -2,
-                        symbol => symbol_to_atomic_number(symbol)
-                            .map_err(|_| format!("Invalid atom at line {}.", line_number + 1))?,
-                    },
+                    Err(_) => {
+                        get_element_by_symbol(items[0])
+                            .ok_or(format!("Invalid atom at line {}.", line_number + 1))?
+                            .atomic_number
+                    }
                 };
 
                 let coord_x: f64 = items[1]
@@ -170,6 +169,16 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                     };
 
                     result.children.push(at_coord_node);
+
+                    // Update molecule data with parsed values
+                    result.data = serde_json::to_vec(&Molecule {
+                        n_atoms: num_atoms as i32,
+                        atomic_num: atom_atomic_num.clone(),
+                        charge: 0,
+                        name: file_name.to_string(),
+                    })
+                    .map_err(|e| format!("Failed to serialize molecule: {}", e))?;
+
                     state = ParserState::Init;
                 }
             }

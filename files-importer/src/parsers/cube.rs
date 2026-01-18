@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use crate::types::{AtomicCoordinates, Node, VolumeCube};
+use shared_lib::types::{AtomicCoordinates, Node, VolumeCube};
 
 const MAX_VALIDATION_LINES: usize = 10;
 const BOHR2ANGSTROM: f64 = 0.529177210903;

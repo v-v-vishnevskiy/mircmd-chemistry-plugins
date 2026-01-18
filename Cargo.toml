@@ -1,9 +1,9 @@
 [workspace]
 members = [
     "shared_lib",
-    "chemistry-cartesian-editor",
-    "chemistry-files-importer",
-    "chemistry-molecular-visualizer",
+    "cartesian-editor",
+    "files-importer",
+    "molecular-visualizer",
 ]
 
 resolver = "2"

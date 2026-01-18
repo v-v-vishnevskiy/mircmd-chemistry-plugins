@@ -15,10 +15,9 @@ mod bindings {
 }
 
 mod parsers;
-mod types;
-mod utils;
 
 use bindings::Guest;
+use shared_lib::types;
 
 struct ChemistryImporter;
 

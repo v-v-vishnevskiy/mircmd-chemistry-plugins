@@ -1,7 +1,9 @@
 {
     "makefile.configureOnOpen": false,
     "rust-analyzer.linkedProjects": [
-        "./chemistry-files-importer/Cargo.toml",
-        "./chemistry-molecular-visualizer/Cargo.toml"
+        "./cartesian-editor/Cargo.toml",
+        "./files-importer/Cargo.toml",
+        "./molecular-visualizer/Cargo.toml",
+        "./shared_lib/Cargo.toml"
     ]
 }

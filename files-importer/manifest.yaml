@@ -1,6 +1,7 @@
-target: core
+target: Core
 type: FileImporter
 metadata:
+  id: chemistry-files-importer
   name: Chemistry Files Importer
   version: 1.0.0
   publisher: mircmd

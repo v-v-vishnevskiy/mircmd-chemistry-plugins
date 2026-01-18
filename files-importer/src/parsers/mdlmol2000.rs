@@ -5,8 +5,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use crate::types::{AtomicCoordinates, Molecule, Node};
-use crate::utils::symbol_to_atomic_number;
+use shared_lib::periodic_table::get_element_by_symbol;
+use shared_lib::types::{AtomicCoordinates, Molecule, Node};
 
 const MAX_VALIDATION_LINES: usize = 4;
 
@@ -127,6 +127,9 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                     return Err(format!("Invalid atom coordinate value(s) at line {}.", line_number + 1));
                 }
 
+                let atomic_num = get_element_by_symbol(items[3])
+                    .ok_or(format!("Invalid atom symbol at line {}.", line_number + 1))?
+                    .atomic_number;
                 let coord_x: f64 = items[0]
                     .parse()
                     .map_err(|_| format!("Invalid atom coordinate value(s) at line {}.", line_number + 1))?;
@@ -136,13 +139,6 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
                 let coord_z: f64 = items[2]
                     .parse()
                     .map_err(|_| format!("Invalid atom coordinate value(s) at line {}.", line_number + 1))?;
-
-                let atomic_num = match items[3] {
-                    "X" => -1,
-                    "Q" => -2,
-                    symbol => symbol_to_atomic_number(symbol)
-                        .map_err(|_| format!("Invalid atom symbol at line {}.", line_number + 1))?,
-                };
 
                 num_read_at_cards += 1;
                 atom_atomic_num.push(atomic_num);

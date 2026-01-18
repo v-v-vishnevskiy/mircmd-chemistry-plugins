@@ -7,8 +7,8 @@ use std::path::Path;
 
 use regex::Regex;
 
-use crate::types::{AtomicCoordinates, Node};
-use crate::utils::symbol_to_atomic_number;
+use shared_lib::periodic_table::get_element_by_symbol;
+use shared_lib::types::{AtomicCoordinates, Node};
 
 const MAX_VALIDATION_LINES: usize = 1;
 
@@ -249,12 +249,9 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
                     }
                     Unex2XyzFormat::Mol => {
                         if items.len() >= 4 {
-                            let at_num = if items[0] == "X" {
-                                -1
-                            } else {
-                                symbol_to_atomic_number(items[0])
-                                    .map_err(|_| format!("Invalid atom symbol {}", items[0]))?
-                            };
+                            let at_num = get_element_by_symbol(items[0])
+                                .ok_or(format!("Invalid atom symbol {}", items[0]))?
+                                .atomic_number;
 
                             let x: f64 = items[1].parse().map_err(|_| "Invalid x coordinate".to_string())?;
                             let y: f64 = items[2].parse().map_err(|_| "Invalid y coordinate".to_string())?;

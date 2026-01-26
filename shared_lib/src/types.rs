@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct Node {
     pub name: String,
-    pub kind: String,
+    pub r#type: String,
     pub data: Vec<u8>,
     pub children: Vec<Node>,
 }

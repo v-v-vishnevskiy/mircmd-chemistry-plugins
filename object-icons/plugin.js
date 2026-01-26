@@ -1,12 +1,9 @@
-export function instantiate(getCoreModule, imports, instantiateCore = WebAssembly.instantiate) {
-
-  const icons = {
+export function instantiate() {
+  return {
     "mircmd:chemistry:molecule": "icons/molecule.png",
     "mircmd:chemistry:atomic_coordinates": "icons/atomic_coordinates.png",
     "mircmd:chemistry:atomic_coordinates_group": "icons/atomic_coordinates_group.png",
     "mircmd:chemistry:unex": "icons/unex.png",
     "mircmd:chemistry:volume_cube": "icons/volume_cube.png",
   };
-
-  return icons;
 }

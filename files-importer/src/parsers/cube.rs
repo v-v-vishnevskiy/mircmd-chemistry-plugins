@@ -37,14 +37,14 @@ fn parse_grid_line(line: &str, line_number: usize) -> Result<(i32, Vec<f64>), St
 /// Returns true if the file appears to be a valid cube file, false otherwise.
 pub fn test(file_path: &str) -> Result<bool, String> {
     let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let file = File::open(path).map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
 
     let lines: Vec<String> = reader
         .lines()
         .take(MAX_VALIDATION_LINES)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+        .map_err(|e| e.to_string())?;
 
     // Need at least 6 lines: 2 comments + 1 header + 3 grid lines
     if lines.len() < 6 {
@@ -304,7 +304,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
 
     let at_coord_node = Node {
         name: "CubeMol".to_string(),
-        kind: "mircmd:chemistry:atomic_coordinates".to_string(),
+        r#type: "mircmd:chemistry:atomic_coordinates".to_string(),
         data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
         children: vec![],
     };
@@ -312,7 +312,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     // Create result node
     let result = Node {
         name: file_name.to_string(),
-        kind: "mircmd:chemistry:volume_cube".to_string(),
+        r#type: "mircmd:chemistry:volume_cube".to_string(),
         data: serde_json::to_vec(&volume_cube).map_err(|e| format!("Failed to serialize volume cube: {}", e))?,
         children: vec![at_coord_node],
     };

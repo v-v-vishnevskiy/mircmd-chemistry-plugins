@@ -18,7 +18,7 @@ use bindings::Guest;
 struct ChemistryMoleculeVisualizer;
 
 impl Guest for ChemistryMoleculeVisualizer {
-    fn render() -> String {
+    fn run() -> String {
         r##"
 <div style="display:flex;flex-direction:column;align-items:center;padding:10px;font-family:system-ui,sans-serif;">
     <canvas id="moleculeCanvas" width="320" height="280"></canvas>

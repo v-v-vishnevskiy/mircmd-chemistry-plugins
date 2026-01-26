@@ -15,14 +15,14 @@ const CFOUR_SIGNATURE: &str = "<<<     CCCCCC     CCCCCC   |||     CCCCCC     CC
 /// Validates if the file is in Cfour log format.
 pub fn test(file_path: &str) -> Result<bool, String> {
     let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let file = File::open(path).map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
 
     let lines: Vec<String> = reader
         .lines()
         .take(MAX_VALIDATION_LINES)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+        .map_err(|e| e.to_string())?;
 
     // Check if any line (except the first) contains the Cfour signature
     for line in lines.iter().skip(1) {
@@ -38,7 +38,7 @@ pub fn test(file_path: &str) -> Result<bool, String> {
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
     let mut result = Node {
         name: file_name.to_string(),
-        kind: "mircmd:chemistry:molecule".to_string(),
+        r#type: "mircmd:chemistry:molecule".to_string(),
         data: serde_json::to_vec(&Molecule {
             n_atoms: 0,
             atomic_num: vec![],
@@ -100,7 +100,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
 
             let at_coord_node = Node {
                 name: format!("Set#{}", cart_set_number),
-                kind: "mircmd:chemistry:atomic_coordinates".to_string(),
+                r#type: "mircmd:chemistry:atomic_coordinates".to_string(),
                 data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };

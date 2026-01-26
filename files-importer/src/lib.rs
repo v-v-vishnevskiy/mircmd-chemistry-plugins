@@ -34,7 +34,7 @@ const PARSERS: &[(&str, ParserTestFn, ParserParseFn)] = &[
 
 impl Guest for ChemistryImporter {
     fn load(file_path: String) -> Result<Vec<u8>, String> {
-        let content = std::fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {}", e))?;
+        let content = std::fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
 
         let file_name = std::path::Path::new(&file_path)
             .file_name()
@@ -60,10 +60,6 @@ impl Guest for ChemistryImporter {
             }
         }
 
-        Err(format!(
-            "No suitable parser found for file '{}'. Errors: {}",
-            file_name,
-            errors.join("; ")
-        ))
+        Err(format!("No suitable parser found for file. {}", errors.join("; ")))
     }
 }

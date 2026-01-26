@@ -40,14 +40,14 @@ fn get_format_version(line: &str) -> Option<i32> {
 /// Validates if the file is in UNEX format.
 pub fn test(file_path: &str) -> Result<bool, String> {
     let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let file = File::open(path).map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
 
     let lines: Vec<String> = reader
         .lines()
         .take(MAX_VALIDATION_LINES)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+        .map_err(|e| e.to_string())?;
 
     if lines.is_empty() {
         return Ok(false);
@@ -60,7 +60,7 @@ pub fn test(file_path: &str) -> Result<bool, String> {
 fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
     let mut result = Node {
         name: file_name.to_string(),
-        kind: "mircmd:chemistry:unex".to_string(),
+        r#type: "mircmd:chemistry:unex".to_string(),
         data: vec![],
         children: vec![],
     };
@@ -80,7 +80,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
                 let idx = result.children.len();
                 result.children.push(Node {
                     name: molecule_name.clone(),
-                    kind: "mircmd:chemistry:molecule".to_string(),
+                    r#type: "mircmd:chemistry:molecule".to_string(),
                     data: vec![],
                     children: vec![],
                 });
@@ -131,7 +131,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
 
             let at_coord_node = Node {
                 name: format!("Set#{}", set_num),
-                kind: "mircmd:chemistry:atomic_coordinates".to_string(),
+                r#type: "mircmd:chemistry:atomic_coordinates".to_string(),
                 data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };
@@ -147,7 +147,7 @@ fn parse_unex1x(content: &str, file_name: &str) -> Result<Node, String> {
 fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
     let mut result = Node {
         name: file_name.to_string(),
-        kind: "mircmd:chemistry:unex".to_string(),
+        r#type: "mircmd:chemistry:unex".to_string(),
         data: vec![],
         children: vec![],
     };
@@ -172,7 +172,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
                 let idx = result.children.len();
                 result.children.push(Node {
                     name: molecule_name.clone(),
-                    kind: "mircmd:chemistry:molecule".to_string(),
+                    r#type: "mircmd:chemistry:molecule".to_string(),
                     data: vec![],
                     children: vec![],
                 });
@@ -276,7 +276,7 @@ fn parse_unex2x(content: &str, file_name: &str) -> Result<Node, String> {
 
             let at_coord_node = Node {
                 name: format!("Set#{}", set_num),
-                kind: "mircmd:chemistry:atomic_coordinates".to_string(),
+                r#type: "mircmd:chemistry:atomic_coordinates".to_string(),
                 data: serde_json::to_vec(&coords).map_err(|e| format!("Failed to serialize coordinates: {}", e))?,
                 children: vec![],
             };

@@ -1,5 +1,5 @@
 package mircmd:api;
 
 world program {
-    export render: func() -> string;
+    export run: func() -> string;
 }

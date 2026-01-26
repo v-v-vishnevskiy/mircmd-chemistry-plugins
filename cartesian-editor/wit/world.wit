@@ -1,8 +1,0 @@
-// Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
-// Licensed under the MIT License
-
-package mircmd:plugin;
-
-world plugin {
-    include mircmd:api/program;
-}

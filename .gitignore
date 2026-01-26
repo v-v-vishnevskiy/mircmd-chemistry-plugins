@@ -4,5 +4,6 @@
 tmp/
 target/
 dist/
+node_modules/
 
 */src/bindings.rs

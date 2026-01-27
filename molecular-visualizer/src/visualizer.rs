@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
+use super::math::matrix::Mat4;
+use super::math::projection::{ProjectionManager, ProjectionMode};
+use super::math::vector::Vec3;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
+use wgpu::util::DeviceExt;
 
 #[wasm_bindgen]
 pub struct MolecularVisualizer {
@@ -10,6 +14,9 @@ pub struct MolecularVisualizer {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    projection: ProjectionManager,
+    uniform_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
 #[wasm_bindgen]
@@ -21,10 +28,7 @@ impl MolecularVisualizer {
         let height = canvas.height();
 
         // Create wgpu instance with WebGPU backend
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::BROWSER_WEBGPU,
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
         // Create surface from canvas
         let surface = instance
@@ -83,10 +87,42 @@ impl MolecularVisualizer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/triangle.wgsl").into()),
         });
 
+        // Create uniform buffer for view-projection matrix
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[0.0f32; 16]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Create bind group layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
+        // Create bind group
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind Group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+        });
+
         // Create render pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&bind_group_layout],
             immediate_size: 0,
         });
 
@@ -136,6 +172,9 @@ impl MolecularVisualizer {
             queue,
             config,
             pipeline,
+            projection: ProjectionManager::new(width, height, ProjectionMode::Perspective),
+            uniform_buffer,
+            bind_group,
         })
     }
 
@@ -145,27 +184,37 @@ impl MolecularVisualizer {
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
+            self.projection.set_viewport(width, height);
         }
     }
 
     #[wasm_bindgen]
     pub fn render(&self) -> Result<(), JsValue> {
+        // Calculate view-projection matrix
+        let mut view_matrix = Mat4::new();
+        view_matrix.look_at(
+            Vec3::new(0.0, 0.0, 2.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let view_projection = *self.projection.matrix() * view_matrix;
+
+        // Update uniform buffer
+        self.queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&view_projection.data));
+
         // Get current texture from surface
         let output = self
             .surface
             .get_current_texture()
             .map_err(|e| JsValue::from_str(&format!("Failed to get surface texture: {e}")))?;
 
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // Create command encoder
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
 
         // Begin render pass
         {
@@ -176,11 +225,10 @@ impl MolecularVisualizer {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        // Clear to black
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
+                            r: 0.133,
+                            g: 0.133,
+                            b: 0.133,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -194,6 +242,7 @@ impl MolecularVisualizer {
 
             // Draw triangle
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
 

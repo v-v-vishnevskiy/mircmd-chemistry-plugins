@@ -1,32 +1,37 @@
 use super::quaternion::Quaternion;
 use super::vector::Vec3;
+use num_traits::Float;
 use std::ops::Mul;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Mat4 {
-    pub data: [f64; 16],
+pub struct Mat4<T: Float> {
+    pub data: [T; 16],
 }
 
-impl Mat4 {
-    const IDENTITY: [f64; 16] = [
-        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-    ];
+impl<T: Float> Mat4<T> {
+    fn identity_data() -> [T; 16] {
+        let zero = T::zero();
+        let one = T::one();
+        [
+            one, zero, zero, zero, zero, one, zero, zero, zero, zero, one, zero, zero, zero, zero, one,
+        ]
+    }
 
     pub fn new() -> Self {
         Self {
-            data: Self::IDENTITY,
+            data: Self::identity_data(),
         }
     }
 
-    pub fn from_array(data: [f64; 16]) -> Self {
+    pub fn from_array(data: [T; 16]) -> Self {
         Self { data }
     }
 
     pub fn set_to_identity(&mut self) {
-        self.data = Self::IDENTITY
+        self.data = Self::identity_data()
     }
 
-    pub fn translate(&mut self, vector: Vec3) {
+    pub fn translate(&mut self, vector: Vec3<T>) {
         let mut mat4 = Self::new();
         mat4.data[12] = vector.x;
         mat4.data[13] = vector.y;
@@ -35,7 +40,7 @@ impl Mat4 {
         *self = *self * mat4
     }
 
-    pub fn scale(&mut self, vector: Vec3) {
+    pub fn scale(&mut self, vector: Vec3<T>) {
         let mut mat4 = Self::new();
         mat4.data[0] = vector.x;
         mat4.data[5] = vector.y;
@@ -44,12 +49,14 @@ impl Mat4 {
         *self = *self * mat4
     }
 
-    pub fn rotate(&mut self, quat: Quaternion) {
+    pub fn rotate(&mut self, quat: Quaternion<T>) {
         *self = *self * quat.to_rotation_matrix()
     }
 
-    pub fn look_at(&mut self, eye: Vec3, center: Vec3, up: Vec3) {
-        // Set matrix to look-at transformation.
+    pub fn look_at(&mut self, eye: Vec3<T>, center: Vec3<T>, up: Vec3<T>) {
+        let zero = T::zero();
+        let one = T::one();
+
         let forward = (center - eye).normalized();
         let side = Vec3::cross_product(forward, up).normalized();
         let up_vec = Vec3::cross_product(side, forward);
@@ -69,64 +76,61 @@ impl Mat4 {
         self.data[10] = -forward.z;
         self.data[14] = Vec3::dot_product(forward, eye);
 
-        self.data[3] = 0.0;
-        self.data[7] = 0.0;
-        self.data[11] = 0.0;
-        self.data[15] = 1.0;
+        self.data[3] = zero;
+        self.data[7] = zero;
+        self.data[11] = zero;
+        self.data[15] = one;
     }
 
-    pub fn perspective(&mut self, fov: f64, aspect: f64, near_plane: f64, far_plane: f64) {
-        // Set matrix to perspective projection
+    pub fn perspective(&mut self, fov: T, aspect: T, near_plane: T, far_plane: T) {
         self.set_to_identity();
 
+        let zero = T::zero();
+        let one = T::one();
+        let two = one + one;
+
         let rad = fov.to_radians();
-        let f = 1.0 / (rad / 2.0).tan();
+        let f = one / (rad / two).tan();
 
         self.data[0] = f / aspect;
         self.data[5] = f;
         self.data[10] = (far_plane + near_plane) / (near_plane - far_plane);
-        self.data[11] = -1.0;
-        self.data[14] = (2.0 * far_plane * near_plane) / (near_plane - far_plane);
-        self.data[15] = 0.0;
+        self.data[11] = -one;
+        self.data[14] = (two * far_plane * near_plane) / (near_plane - far_plane);
+        self.data[15] = zero;
     }
 
-    pub fn ortho(
-        &mut self,
-        left: f64,
-        right: f64,
-        bottom: f64,
-        top: f64,
-        near_plane: f64,
-        far_plane: f64,
-    ) {
-        // Set matrix to orthographic projection."""
+    pub fn ortho(&mut self, left: T, right: T, bottom: T, top: T, near_plane: T, far_plane: T) {
         self.set_to_identity();
+
+        let one = T::one();
+        let two = one + one;
 
         let width = right - left;
         let height = top - bottom;
         let depth = far_plane - near_plane;
 
-        self.data[0] = 2.0 / width;
-        self.data[5] = 2.0 / height;
-        self.data[10] = -2.0 / depth;
+        self.data[0] = two / width;
+        self.data[5] = two / height;
+        self.data[10] = -two / depth;
         self.data[12] = -(right + left) / width;
         self.data[13] = -(top + bottom) / height;
         self.data[14] = -(far_plane + near_plane) / depth;
     }
 }
 
-impl Mul for Mat4 {
+impl<T: Float> Mul for Mat4<T> {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
-        let mut data = Self::IDENTITY;
+        let mut data = Self::identity_data();
 
         for col in 0..4 {
             for row in 0..4 {
-                let mut sum = 0.0;
+                let mut sum = T::zero();
                 for i in 0..4 {
                     let a = self.data[i * 4 + row];
                     let b = other.data[col * 4 + i];
-                    sum = a + b;
+                    sum = sum + a * b;
                 }
                 data[col * 4 + row] = sum;
             }

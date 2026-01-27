@@ -1,4 +1,10 @@
-// Vertex shader output / Fragment shader input
+struct Uniforms {
+    view_projection: mat4x4<f32>,
+};
+
+@group(0) @binding(0)
+var<uniform> uniforms: Uniforms;
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec3<f32>,
@@ -6,11 +12,11 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    // Triangle vertices in clip space (NDC: -1 to 1)
-    var positions = array<vec2<f32>, 3>(
-        vec2<f32>(0.0, 0.5),    // Top
-        vec2<f32>(-0.5, -0.5),  // Bottom left
-        vec2<f32>(0.5, -0.5),   // Bottom right
+    // Triangle vertices in world space
+    var positions = array<vec3<f32>, 3>(
+        vec3<f32>(0.0, 0.5, 0.0),    // Top
+        vec3<f32>(-0.5, -0.5, 0.0),  // Bottom left
+        vec3<f32>(0.5, -0.5, 0.0),   // Bottom right
     );
 
     // Vertex colors (RGB)
@@ -21,7 +27,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     );
 
     var output: VertexOutput;
-    output.position = vec4<f32>(positions[vertex_index], 0.0, 1.0);
+    output.position = uniforms.view_projection * vec4<f32>(positions[vertex_index], 1.0);
     output.color = colors[vertex_index];
     return output;
 }

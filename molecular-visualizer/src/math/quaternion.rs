@@ -1,38 +1,41 @@
 use super::matrix::Mat4;
 use super::vector::Vec3;
+use num_traits::Float;
 use std::ops::Mul;
 
-const EPSILON: f64 = 1e-10;
-
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct Quaternion {
-    pub w: f64,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+pub struct Quaternion<T: Float> {
+    pub w: T,
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
-impl Quaternion {
-    fn length(&self) -> f64 {
+impl<T: Float> Quaternion<T> {
+    fn epsilon() -> T {
+        T::from(1e-10).unwrap()
+    }
+
+    fn length(&self) -> T {
         (self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
     fn normalized(&self) -> Self {
         let len = self.length();
-        if len < EPSILON {
-            Self::new(1.0, 0.0, 0.0, 0.0)
+        if len < Self::epsilon() {
+            Self::new(T::one(), T::zero(), T::zero(), T::zero())
         } else {
             Self::new(self.w / len, self.x / len, self.y / len, self.z / len)
         }
     }
 
-    pub fn new(w: f64, x: f64, y: f64, z: f64) -> Self {
+    pub fn new(w: T, x: T, y: T, z: T) -> Self {
         Self { w, x, y, z }
     }
 
-    pub fn from_axis_and_angle(axis: Vec3, angle: f64) -> Self {
+    pub fn from_axis_and_angle(axis: Vec3<T>, angle: T) -> Self {
         let rad = angle.to_radians();
-        let half_angle = rad / 2.0;
+        let half_angle = rad / (T::one() + T::one());
         let sin = half_angle.sin();
         let axis_normalized = axis.normalized();
 
@@ -44,73 +47,76 @@ impl Quaternion {
         }
     }
 
-    pub fn rotation_to(from_vec: Vec3, to_vec: Vec3) -> Self {
-        // Create quaternion that rotates from one vector to another.
+    pub fn rotation_to(from_vec: Vec3<T>, to_vec: Vec3<T>) -> Self {
+        let zero = T::zero();
+        let one = T::one();
+        let threshold = T::from(0.9999).unwrap();
+        let small = T::from(0.0001).unwrap();
 
         let v1 = from_vec.normalized();
         let v2 = to_vec.normalized();
 
         let dot = Vec3::dot_product(v1, v2);
 
-        // Vectors are parallel
-        if dot >= 0.9999 {
-            return Self::new(1.0, 0.0, 0.0, 0.0);
+        if dot >= threshold {
+            return Self::new(one, zero, zero, zero);
         }
 
-        // Vectors are opposite
-        if dot <= -0.9999 {
-            // Find orthogonal vector
-            let mut axis = Vec3::cross_product(Vec3::new(1.0, 0.0, 0.0), v1);
-            if axis.length() < 0.0001 {
-                axis = Vec3::cross_product(Vec3::new(0.0, 1.0, 0.0), v1);
+        if dot <= -threshold {
+            let mut axis = Vec3::cross_product(Vec3::new(one, zero, zero), v1);
+            if axis.length() < small {
+                axis = Vec3::cross_product(Vec3::new(zero, one, zero), v1);
             }
             axis = axis.normalized();
-            return Self::new(0.0, axis.x, axis.y, axis.z);
+            return Self::new(zero, axis.x, axis.y, axis.z);
         }
 
-        // General case
         let axis = Vec3::cross_product(v1, v2);
         let w = (v1.length_squared() * v2.length_squared()).sqrt() + dot;
 
         Self::new(w, axis.x, axis.y, axis.z).normalized()
     }
 
-    pub fn to_rotation_matrix(self) -> Mat4 {
+    pub fn to_rotation_matrix(self) -> Mat4<T> {
         let q = self.normalized();
+
+        let zero = T::zero();
+        let one = T::one();
+        let two = one + one;
 
         Mat4::from_array([
             // Column 0
-            1.0 - 2.0 * (q.y * q.y + q.z * q.z),
-            2.0 * (q.x * q.y + q.w * q.z),
-            2.0 * (q.x * q.z - q.w * q.y),
-            0.0,
+            one - two * (q.y * q.y + q.z * q.z),
+            two * (q.x * q.y + q.w * q.z),
+            two * (q.x * q.z - q.w * q.y),
+            zero,
             // Column 1
-            2.0 * (q.x * q.y - q.w * q.z),
-            1.0 - 2.0 * (q.x * q.x + q.z * q.z),
-            2.0 * (q.y * q.z + q.w * q.x),
-            0.0,
+            two * (q.x * q.y - q.w * q.z),
+            one - two * (q.x * q.x + q.z * q.z),
+            two * (q.y * q.z + q.w * q.x),
+            zero,
             // Column 2
-            2.0 * (q.x * q.z + q.w * q.y),
-            2.0 * (q.y * q.z - q.w * q.x),
-            1.0 - 2.0 * (q.x * q.x + q.y * q.y),
-            0.0,
+            two * (q.x * q.z + q.w * q.y),
+            two * (q.y * q.z - q.w * q.x),
+            one - two * (q.x * q.x + q.y * q.y),
+            zero,
             // Column 3
-            0.0,
-            0.0,
-            0.0,
-            1.0,
+            zero,
+            zero,
+            zero,
+            one,
         ])
     }
 
-    pub fn approx_eq(&self, other: Quaternion) -> bool {
-        (self.w - other.w).abs() < EPSILON
-            && (self.x - other.x).abs() < EPSILON
-            && (self.y - other.y).abs() < EPSILON
-            && (self.z - other.z).abs() < EPSILON
+    pub fn approx_eq(&self, other: Quaternion<T>) -> bool {
+        (self.w - other.w).abs() < Self::epsilon()
+            && (self.x - other.x).abs() < Self::epsilon()
+            && (self.y - other.y).abs() < Self::epsilon()
+            && (self.z - other.z).abs() < Self::epsilon()
     }
 }
 
-impl Mul for Quaternion {
+impl<T: Float> Mul for Quaternion<T> {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
         Self {

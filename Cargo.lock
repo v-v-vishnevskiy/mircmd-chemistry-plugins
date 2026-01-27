@@ -503,6 +503,8 @@ dependencies = [
 name = "molecular-visualizer"
 version = "1.0.0"
 dependencies = [
+ "bytemuck",
+ "num-traits",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

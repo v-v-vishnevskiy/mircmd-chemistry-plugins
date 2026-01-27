@@ -5,5 +5,5 @@ tmp/
 target/
 dist/
 node_modules/
-
+pkg/
 */src/bindings.rs

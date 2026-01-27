@@ -4,11 +4,11 @@ This is a set of advanced tools for structure manipulation and visualization.
 
 ## [Cartesian Editor](cartesian-editor/README.md)
 
-A simple editor for `mircmd:chemistry:atomic_coordinates` objects.
+Simple editor for manipulating [`mircmd:chemistry:atomic_coordinates`](files-importer/README.md#mircmdchemistryatomic_coordinates) with precision and ease.
 
 ## [Molecular Visualiszer](molecular-visualizer/README.md)
 
-A molecular visualizer.
+Advanced 3D visualization tool for [`mircmd:chemistry:atomic_coordinates`](files-importer/README.md#mircmdchemistryatomic_coordinates) and [`mircmd:chemistry:volume_cube`](files-importer/README.md#mircmdchemistryvolume_cube) with interactive controls and multiple rendering modes.
 
 ## [Files Importer](files-importer/README.md)
 

@@ -1,10 +1,14 @@
 import type { ProgramPluginContext } from './program_context';
 
+interface MolecularVisualizerInstance {
+    resize(width: number, height: number): void;
+    render(): void;
+}
+
 interface WasmModule {
     default: (wasm_url: URL) => Promise<void>;
-    MolecularVisualizer: new (canvas: HTMLCanvasElement) => {
-        set_data(data: Uint8Array): void;
-        render(): void;
+    MolecularVisualizer: {
+        create(canvas: HTMLCanvasElement): Promise<MolecularVisualizerInstance>;
     };
 }
 
@@ -25,9 +29,24 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     }
 
     const canvas = create_canvas(ctx.root);
-    const visualizer = new wasm_module.MolecularVisualizer(canvas);
-    visualizer.set_data(data);
+    const visualizer = await wasm_module.MolecularVisualizer.create(canvas);
     visualizer.render();
+
+    // Handle resize
+    const resize_observer = new ResizeObserver(() => {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.floor(rect.width * dpr);
+        const height = Math.floor(rect.height * dpr);
+
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+            visualizer.resize(width, height);
+            visualizer.render();
+        }
+    });
+    resize_observer.observe(canvas);
 }
 
 function clear_root(root: ShadowRoot): void {
@@ -38,17 +57,21 @@ function create_canvas(root: ShadowRoot): HTMLCanvasElement {
     const container = document.createElement('div');
     container.style.width = '100%';
     container.style.height = '100%';
-    container.style.display = 'flex';
-    container.style.justifyContent = 'center';
-    container.style.alignItems = 'center';
-    container.style.backgroundColor = '#1e1e1e';
+    container.style.overflow = 'hidden';
 
     const canvas = document.createElement('canvas');
-    canvas.style.maxWidth = '100%';
-    canvas.style.maxHeight = '100%';
+    canvas.style.display = 'block';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
 
     container.appendChild(canvas);
     root.appendChild(container);
+
+    // Set canvas buffer size to match display size
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
 
     return canvas;
 }

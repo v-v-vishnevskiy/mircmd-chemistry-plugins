@@ -10,18 +10,10 @@ crate-type = ["cdylib"]
 # serde = { workspace = true }
 # serde_json = { workspace = true }
 # shared_lib = { workspace = true }
-# bytemuck = { version = "1.23.2", features = ["derive"] }
-# log = "0.4.28"
 wasm-bindgen = "0.2.108"
-# wasm-bindgen-futures = "0.4.58"
-# wgpu = { version = "28.0.0", features = ["webgl"] }
-web-sys = { version = "0.3.85", features = [
-    # "Document",
-    # "Window",
-    # "Element",
-    "CanvasRenderingContext2d",
-    "HtmlCanvasElement",
-] }
+wasm-bindgen-futures = "0.4.58"
+wgpu = "28.0.0"
+web-sys = { version = "0.3.85", features = ["HtmlCanvasElement"] }
 
 [profile.release]
 opt-level = "s"

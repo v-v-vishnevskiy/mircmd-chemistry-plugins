@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
-use super::math::matrix::Mat4;
-use super::math::projection::{ProjectionManager, ProjectionMode};
-use super::math::vector::Vec3;
+use super::config::Config;
+use super::core::Transform;
+use super::core::Vec3;
+use super::core::math::matrix::Mat4;
+use super::core::math::projection::{ProjectionManager, ProjectionMode};
+use super::core::mesh::{InstanceData, Mesh, Vertex};
+use super::core::mesh_objects;
+use super::molecule::Molecule;
+use shared_lib::types::AtomicCoordinates;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 use wgpu::util::DeviceExt;
@@ -14,16 +20,24 @@ pub struct MolecularVisualizer {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    visualizer_config: Config,
+    node_data: AtomicCoordinates,
     projection: ProjectionManager,
+    scene_transform: Transform,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    instance_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    molecule: Molecule,
+    cube_mesh: Mesh,
 }
 
 #[wasm_bindgen]
 impl MolecularVisualizer {
     /// Creates a new MolecularVisualizer instance.
     /// Use as: `const visualizer = await MolecularVisualizer.create(canvas);`
-    pub async fn create(canvas: HtmlCanvasElement) -> Result<MolecularVisualizer, JsValue> {
+    pub async fn create(canvas: HtmlCanvasElement, data: Vec<u8>) -> Result<MolecularVisualizer, JsValue> {
         let width = canvas.width();
         let height = canvas.height();
 
@@ -83,8 +97,8 @@ impl MolecularVisualizer {
 
         // Create shader module
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Triangle Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/triangle.wgsl").into()),
+            label: Some("Main Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/main.wgsl").into()),
         });
 
         // Create uniform buffer for view-projection matrix
@@ -126,13 +140,27 @@ impl MolecularVisualizer {
             immediate_size: 0,
         });
 
+        let cube_mesh = mesh_objects::cube::create(0.5);
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Cube Vertex Buffer"),
+            contents: bytemuck::cast_slice(&cube_mesh.vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Cube Index Buffer"),
+            contents: bytemuck::cast_slice(&cube_mesh.indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[],
+                buffers: &[Vertex::desc(), InstanceData::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -164,6 +192,20 @@ impl MolecularVisualizer {
             cache: None,
         });
 
+        let visualizer_config = Config::new();
+
+        let node_data: AtomicCoordinates = serde_json::from_slice(&data)
+            .map_err(|e| JsValue::from_str(&format!("Failed to deserialize data: {e}")))?;
+
+        let molecule = Molecule::new(&node_data, &visualizer_config)?;
+
+        let instance_data = molecule.instance_data();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         let device = Arc::into_inner(device).unwrap();
 
         Ok(MolecularVisualizer {
@@ -172,9 +214,17 @@ impl MolecularVisualizer {
             queue,
             config,
             pipeline,
+            visualizer_config,
+            node_data,
             projection: ProjectionManager::new(width, height, ProjectionMode::Perspective),
+            scene_transform: Transform::new(),
             uniform_buffer,
             bind_group,
+            vertex_buffer,
+            index_buffer,
+            instance_buffer,
+            molecule,
+            cube_mesh,
         })
     }
 
@@ -189,7 +239,25 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
-    pub fn render(&self) -> Result<(), JsValue> {
+    pub fn rotate_scene(&mut self, pitch: f32, yaw: f32, roll: f32) {
+        if pitch == 0.0 && yaw == 0.0 && roll == 0.0 {
+            return;
+        }
+
+        self.scene_transform.rotate(pitch, yaw, roll);
+    }
+
+    #[wasm_bindgen]
+    pub fn scale_scene(&mut self, factor: f32) {
+        if factor == 1.0 || factor == 0.0 {
+            return;
+        }
+
+        self.scene_transform.scale(Vec3::new(factor, factor, factor));
+    }
+
+    #[wasm_bindgen]
+    pub fn render(&mut self) -> Result<(), JsValue> {
         // Calculate view-projection matrix
         let mut view_matrix = Mat4::new();
         view_matrix.look_at(
@@ -197,7 +265,8 @@ impl MolecularVisualizer {
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
-        let view_projection = *self.projection.matrix() * view_matrix;
+        let scene_matrix = *self.scene_transform.get_matrix();
+        let view_projection = *self.projection.matrix() * view_matrix * scene_matrix * self.molecule.center;
 
         // Update uniform buffer
         self.queue
@@ -240,10 +309,12 @@ impl MolecularVisualizer {
                 multiview_mask: None,
             });
 
-            // Draw triangle
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_bind_group(0, &self.bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
+            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..self.molecule.instance_count());
         }
 
         // Submit commands

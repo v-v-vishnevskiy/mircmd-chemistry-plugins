@@ -2,13 +2,15 @@ import type { ProgramPluginContext } from './program_context';
 
 interface MolecularVisualizerInstance {
     resize(width: number, height: number): void;
+    scale_scene(factor: number): void;
+    rotate_scene(pitch: number, yaw: number, roll: number): void;
     render(): void;
 }
 
 interface WasmModule {
     default: (wasm_url: URL) => Promise<void>;
     MolecularVisualizer: {
-        create(canvas: HTMLCanvasElement): Promise<MolecularVisualizerInstance>;
+        create(canvas: HTMLCanvasElement, data: Uint8Array): Promise<MolecularVisualizerInstance>;
     };
 }
 
@@ -29,7 +31,7 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     }
 
     const canvas = create_canvas(ctx.root);
-    const visualizer = await wasm_module.MolecularVisualizer.create(canvas);
+    const visualizer = await wasm_module.MolecularVisualizer.create(canvas, data);
     visualizer.render();
 
     // Handle resize
@@ -47,6 +49,59 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
         }
     });
     resize_observer.observe(canvas);
+
+    // Handle mouse rotation
+    let is_dragging = false;
+    let last_mouse_x = 0;
+    let last_mouse_y = 0;
+    const rotation_sensitivity = 0.5;
+
+    canvas.addEventListener('mousedown', (event: MouseEvent) => {
+        if (event.button === 0) {
+            is_dragging = true;
+            last_mouse_x = event.clientX;
+            last_mouse_y = event.clientY;
+        }
+    });
+
+    canvas.addEventListener('mousemove', (event: MouseEvent) => {
+        if (!is_dragging) {
+            return;
+        }
+
+        const delta_x = event.clientX - last_mouse_x;
+        const delta_y = event.clientY - last_mouse_y;
+
+        last_mouse_x = event.clientX;
+        last_mouse_y = event.clientY;
+
+        const yaw = delta_x * rotation_sensitivity;
+        const pitch = delta_y * rotation_sensitivity;
+
+        visualizer.rotate_scene(pitch, yaw, 0);
+        visualizer.render();
+    });
+
+    canvas.addEventListener('mouseup', (event: MouseEvent) => {
+        if (event.button === 0) {
+            is_dragging = false;
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        is_dragging = false;
+    });
+
+    // Handle mouse wheel zoom
+    const zoom_sensitivity = 0.001;
+
+    canvas.addEventListener('wheel', (event: WheelEvent) => {
+        event.preventDefault();
+
+        const factor = 1.0 - event.deltaY * zoom_sensitivity;
+        visualizer.scale_scene(factor);
+        visualizer.render();
+    }, { passive: false });
 }
 
 function clear_root(root: ShadowRoot): void {

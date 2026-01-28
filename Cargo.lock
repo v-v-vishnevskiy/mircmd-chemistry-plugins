@@ -505,6 +505,9 @@ version = "1.0.0"
 dependencies = [
  "bytemuck",
  "num-traits",
+ "serde",
+ "serde_json",
+ "shared_lib",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

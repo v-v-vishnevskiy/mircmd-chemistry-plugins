@@ -7,9 +7,9 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-# serde = { workspace = true }
-# serde_json = { workspace = true }
-# shared_lib = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shared_lib = { workspace = true }
 bytemuck = { version = "1.21", features = ["derive"] }
 num-traits = "0.2.19"
 wasm-bindgen = "0.2.108"

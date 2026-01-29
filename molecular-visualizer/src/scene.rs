@@ -113,10 +113,18 @@ impl Scene {
 
             render_pass.set_pipeline(&self.renderer.pipeline);
             render_pass.set_vertex_buffer(0, self.cube_vbo.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, molecule.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.cube_vbo.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
-            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.instance_count());
+
+            // Render atoms
+            render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
+            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
+
+            // Render bonds
+            if molecule.bonds_instance_count() > 0 {
+                render_pass.set_vertex_buffer(1, molecule.bonds_instance_buffer.slice(..));
+                render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.bonds_instance_count());
+            }
         }
 
         // Submit commands

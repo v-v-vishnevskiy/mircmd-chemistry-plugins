@@ -1,7 +1,12 @@
 use shared_lib::periodic_table::get_element_by_number;
 use shared_lib::types::AtomicCoordinates;
 
-pub fn build(data: &AtomicCoordinates, geom_bond_tolerance: f64) -> Vec<(usize, usize)> {
+pub struct Bond {
+    pub atom_index_1: usize,
+    pub atom_index_2: usize,
+}
+
+pub fn build(data: &AtomicCoordinates, geom_bond_tolerance: f64) -> Vec<Bond> {
     // Optimized implementation using Spatial Sorting (Sweep and Prune).
     // Complexity: O(N log N) sorting + O(N * k) search, where k is small.
 
@@ -45,12 +50,7 @@ pub fn build(data: &AtomicCoordinates, geom_bond_tolerance: f64) -> Vec<(usize, 
     let n_atoms = atoms.len();
 
     for i in 0..n_atoms {
-        let ai = atoms[i];
-        let xi = ai.0;
-        let yi = ai.1;
-        let zi = ai.2;
-        let ri = ai.3;
-        let origin_i = ai.4;
+        let (xi, yi, zi, ri, origin_i) = atoms[i];
 
         // Search limit along X axis for the current atom.
         // If a neighbor along X is farther than this value, then any other neighbor
@@ -59,12 +59,7 @@ pub fn build(data: &AtomicCoordinates, geom_bond_tolerance: f64) -> Vec<(usize, 
 
         // Inner loop: only look forward
         for j in i + 1..n_atoms {
-            let aj = atoms[j];
-            let xj = aj.0;
-            let yj = aj.1;
-            let zj = aj.2;
-            let rj = aj.3;
-            let origin_j = aj.4;
+            let (xj, yj, zj, rj, origin_j) = atoms[j];
 
             // --- 1. X-axis culling (Sweep Check) ---
             let dx = xj - xi;
@@ -93,10 +88,17 @@ pub fn build(data: &AtomicCoordinates, geom_bond_tolerance: f64) -> Vec<(usize, 
                 // Save the result
                 // Usually it's conventional to return (larger_index, smaller_index) or vice versa
                 // Sort the pair for consistency
+
                 if origin_i > origin_j {
-                    result.push((origin_i, origin_j))
+                    result.push(Bond {
+                        atom_index_1: origin_i,
+                        atom_index_2: origin_j,
+                    })
                 } else {
-                    result.push((origin_j, origin_i))
+                    result.push(Bond {
+                        atom_index_1: origin_j,
+                        atom_index_2: origin_i,
+                    })
                 }
             }
         }

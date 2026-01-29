@@ -1,3 +1,4 @@
+use super::super::types::Color;
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
@@ -32,7 +33,7 @@ impl Vertex {
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct InstanceData {
     pub model_matrix: [[f32; 4]; 4],
-    pub color: [f32; 4],
+    pub color: Color,
 }
 
 impl InstanceData {

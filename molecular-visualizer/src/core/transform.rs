@@ -83,4 +83,9 @@ impl Transform {
         self.rotation = pitch_quat * yaw_quat * roll_quat * self.rotation;
         self.dirty = true
     }
+
+    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
+        self.rotation = rotation;
+        self.dirty = true;
+    }
 }

@@ -1,3 +1,4 @@
+mod bonds;
 mod config;
 mod core;
 mod molecule;

@@ -110,6 +110,7 @@ impl MolecularVisualizer {
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
+            self.scene.resize(&self.device, &self.config);
             self.scene.projection_manager.set_viewport(width, height);
         }
     }

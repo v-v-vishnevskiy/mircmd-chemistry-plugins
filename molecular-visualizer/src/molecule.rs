@@ -39,10 +39,14 @@ impl Molecule {
         );
 
         for i in 0..num_atoms {
-            let atom = config.atoms.get(&atomic_coordinates.atomic_num[i]).ok_or(format!(
-                "Atom not found for atomic number: {}",
-                atomic_coordinates.atomic_num[i]
-            ))?;
+            let atom = config
+                .style
+                .atoms
+                .get(&atomic_coordinates.atomic_num[i])
+                .ok_or(format!(
+                    "Atom not found for atomic number: {}",
+                    atomic_coordinates.atomic_num[i]
+                ))?;
             let mut transform = Transform::new();
 
             let position = Vec3::new(
@@ -93,12 +97,13 @@ impl Molecule {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let bond_radius = config.bond.radius;
+        let bond_radius = config.style.bond.radius;
         let mut bonds_transform = Vec::new();
         let mut bonds_color = Vec::new();
-        let bonds_list = bonds::build(atomic_coordinates, config.geom_bond_tolerance);
+        let bonds_list = bonds::build(atomic_coordinates, config.style.geom_bond_tolerance);
         for bond in bonds_list {
             let atom_1 = config
+                .style
                 .atoms
                 .get(&atomic_coordinates.atomic_num[bond.atom_index_1])
                 .ok_or(format!(
@@ -107,6 +112,7 @@ impl Molecule {
                 ))?;
 
             let atom_2 = config
+                .style
                 .atoms
                 .get(&atomic_coordinates.atomic_num[bond.atom_index_2])
                 .ok_or(format!(

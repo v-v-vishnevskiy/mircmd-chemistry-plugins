@@ -17,13 +17,14 @@ pub struct Bond {
     pub color: Color,
 }
 
-pub struct Config {
+pub struct Style {
+    pub background_color: Color,
     pub atoms: HashMap<i32, Atom>,
     pub bond: Bond,
     pub geom_bond_tolerance: f64,
 }
 
-impl Config {
+impl Style {
     pub fn new() -> Self {
         let mut atoms = HashMap::new();
 
@@ -869,6 +870,7 @@ impl Config {
         );
 
         Self {
+            background_color: Color::new(0.133, 0.133, 0.133, 1.0),
             atoms,
             bond: Bond {
                 radius: 0.1,
@@ -877,5 +879,15 @@ impl Config {
             },
             geom_bond_tolerance: 0.15,
         }
+    }
+}
+
+pub struct Config {
+    pub style: Style,
+}
+
+impl Config {
+    pub fn new() -> Self {
+        Self { style: Style::new() }
     }
 }

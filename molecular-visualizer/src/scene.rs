@@ -58,7 +58,7 @@ impl Scene {
         }
     }
 
-    pub fn render(&mut self, surface: &wgpu::Surface, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn render(&mut self, surface: &wgpu::Surface, device: &wgpu::Device, queue: &wgpu::Queue, config: &Config) {
         let molecule = match &self.molecule {
             Some(molecule) => molecule,
             None => return,
@@ -101,9 +101,9 @@ impl Scene {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.133,
-                            g: 0.133,
-                            b: 0.133,
+                            r: config.style.background_color.r as f64,
+                            g: config.style.background_color.g as f64,
+                            b: config.style.background_color.b as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,

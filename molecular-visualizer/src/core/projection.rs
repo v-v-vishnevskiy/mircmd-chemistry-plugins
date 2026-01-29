@@ -1,4 +1,4 @@
-use super::matrix::Mat4;
+use super::Mat4;
 
 pub struct OrthographicProjection {
     width: u32,
@@ -17,19 +17,19 @@ impl OrthographicProjection {
             depth_factor,
             matrix: Mat4::new(),
         };
-        proj.set_viewport(width, height);
+        proj.update_matrix();
         proj
     }
 
-    fn set_viewport(&mut self, width: u32, height: u32) {
-        let w = width as f32;
-        let h = height as f32;
+    fn update_matrix(&mut self) {
+        let w = self.width as f32;
+        let h = self.height as f32;
         let left: f32;
         let right: f32;
         let bottom: f32;
         let top: f32;
 
-        if width <= height {
+        if self.width <= self.height {
             // Portrait or square viewport
             left = -self.view_bounds;
             right = self.view_bounds;
@@ -48,8 +48,17 @@ impl OrthographicProjection {
 
         self.matrix.set_to_identity();
         self.matrix.ortho(left, right, bottom, top, near, far);
+    }
+
+    fn set_viewport(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
+        self.update_matrix();
+    }
+
+    pub fn set_view_bounds(&mut self, value: f32) {
+        self.view_bounds = value;
+        self.update_matrix();
     }
 }
 
@@ -72,12 +81,12 @@ impl PerspectiveProjection {
             far_plane,
             matrix: Mat4::new(),
         };
-        proj.set_viewport(width, height);
+        proj.update_matrix();
         proj
     }
 
-    fn set_viewport(&mut self, width: u32, height: u32) {
-        let aspect = width as f32 / height as f32;
+    fn update_matrix(&mut self) {
+        let aspect = self.width as f32 / self.height as f32;
 
         // Calculate effective FOV and frustum planes based on orientation
         let half_fov_rad = (self.fov / 2.0).to_radians();
@@ -85,7 +94,7 @@ impl PerspectiveProjection {
 
         let fov: f32;
 
-        if width <= height {
+        if self.width <= self.height {
             // Portrait or square viewport: FOV applies to horizontal axis (narrower)
             // Calculate vertical FOV from horizontal FOV to maintain proper scaling
             fov = (2.0 * (tan_half_fov / aspect).atan()).to_degrees();
@@ -96,8 +105,22 @@ impl PerspectiveProjection {
 
         self.matrix.set_to_identity();
         self.matrix.perspective(fov, aspect, self.near_plane, self.far_plane);
+    }
+
+    fn set_viewport(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
+        self.update_matrix();
+    }
+
+    pub fn set_near_far_plane(&mut self, near_plane: f32, far_plane: f32) {
+        self.near_plane = near_plane;
+        self.far_plane = far_plane;
+        self.update_matrix();
+    }
+
+    pub fn get_fov(&self) -> f32 {
+        self.fov
     }
 }
 
@@ -109,8 +132,8 @@ pub enum ProjectionMode {
 
 pub struct ProjectionManager {
     pub mode: ProjectionMode,
-    orthographic_projection: OrthographicProjection,
-    perspective_projection: PerspectiveProjection,
+    pub orthographic_projection: OrthographicProjection,
+    pub perspective_projection: PerspectiveProjection,
 }
 
 impl ProjectionManager {
@@ -135,7 +158,15 @@ impl ProjectionManager {
         self.perspective_projection.set_viewport(width, height);
     }
 
-    pub fn matrix(&self) -> &Mat4<f32> {
+    pub fn get_fov(self) -> f32 {
+        self.perspective_projection.fov
+    }
+
+    pub fn set_near_far_plane(&mut self, near_plane: f32, far_plane: f32) {
+        self.perspective_projection.set_near_far_plane(near_plane, far_plane);
+    }
+
+    pub fn get_matrix(&self) -> &Mat4<f32> {
         if self.mode == ProjectionMode::Orthographic {
             &self.orthographic_projection.matrix
         } else {

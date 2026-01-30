@@ -34,6 +34,7 @@ impl Vertex {
 pub struct InstanceData {
     pub model_matrix: [[f32; 4]; 4],
     pub color: Color,
+    pub ray_casting_type: u32,
 }
 
 impl InstanceData {
@@ -71,6 +72,12 @@ impl InstanceData {
                     offset: (std::mem::size_of::<[f32; 4]>() * 4) as wgpu::BufferAddress,
                     shader_location: 6,
                     format: wgpu::VertexFormat::Float32x4,
+                },
+                // Ray Casting Type
+                wgpu::VertexAttribute {
+                    offset: (std::mem::size_of::<[f32; 4]>() * 5) as wgpu::BufferAddress,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Uint32,
                 },
             ],
         }

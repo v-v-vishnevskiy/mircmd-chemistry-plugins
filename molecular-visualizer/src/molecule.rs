@@ -10,9 +10,11 @@ pub struct Molecule {
     atoms_transform: Vec<[[f32; 4]; 4]>,
     atoms_visibility: Vec<bool>,
     atoms_color: Vec<Color>,
+    atoms_ray_casting: Vec<u32>,
 
     bonds_transform: Vec<[[f32; 4]; 4]>,
     bonds_color: Vec<Color>,
+    bonds_ray_casting: Vec<u32>,
 
     pub radius: f32,
     pub transform: Mat4<f32>,
@@ -25,6 +27,7 @@ impl Molecule {
         let mut atoms_transform = Vec::new();
         let mut atoms_visibility = Vec::new();
         let mut atoms_color = Vec::new();
+        let mut atoms_ray_casting = Vec::new();
         let mut radius: f32 = 0.0;
         let num_atoms = atomic_coordinates.atomic_num.len();
 
@@ -70,6 +73,7 @@ impl Molecule {
             atoms_transform.push(matrix_4x4);
             atoms_visibility.push(true);
             atoms_color.push(atom.color);
+            atoms_ray_casting.push(1);
         }
 
         let mut transform = Mat4::new();
@@ -79,11 +83,13 @@ impl Molecule {
             .iter()
             .zip(atoms_color.iter())
             .zip(atoms_visibility.iter())
-            .filter_map(|((transform, color), visible)| {
+            .zip(atoms_ray_casting.iter())
+            .filter_map(|(((transform, color), visible), rc_type)| {
                 if *visible {
                     Some(InstanceData {
                         model_matrix: *transform,
                         color: *color,
+                        ray_casting_type: *rc_type,
                     })
                 } else {
                     None
@@ -100,6 +106,7 @@ impl Molecule {
         let bond_radius = config.style.bond.radius;
         let mut bonds_transform = Vec::new();
         let mut bonds_color = Vec::new();
+        let mut bonds_ray_casting = Vec::new();
         let bonds_list = bonds::build(atomic_coordinates, config.style.geom_bond_tolerance);
         for bond in bonds_list {
             let atom_1 = config
@@ -149,16 +156,19 @@ impl Molecule {
                 ];
                 bonds_transform.push(matrix_4x4);
                 bonds_color.push(b.2);
+                bonds_ray_casting.push(2);
             }
         }
 
         let data: Vec<InstanceData> = bonds_transform
             .iter()
             .zip(bonds_color.iter())
-            .filter_map(|(transform, color)| {
+            .zip(bonds_ray_casting.iter())
+            .filter_map(|((transform, color), rc_type)| {
                 Some(InstanceData {
                     model_matrix: *transform,
                     color: *color,
+                    ray_casting_type: *rc_type,
                 })
             })
             .collect();
@@ -173,8 +183,10 @@ impl Molecule {
             atoms_transform,
             atoms_visibility,
             atoms_color,
+            atoms_ray_casting,
             bonds_transform,
             bonds_color,
+            bonds_ray_casting,
             radius: radius.sqrt(),
             transform: transform,
             atoms_instance_buffer,

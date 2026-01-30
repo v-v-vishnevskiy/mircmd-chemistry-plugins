@@ -18,10 +18,10 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/main.wgsl").into()),
         });
 
-        // Create uniform buffer for view-projection and scene matrices
+        // Create uniform buffer for 4 matrices (256 bytes) + u32 flag (4 bytes) + padding (12 bytes)
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[0.0f32; 32]),
+            contents: &[0u8; 272],
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -30,7 +30,7 @@ impl Renderer {
             label: Some("Bind Group Layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,

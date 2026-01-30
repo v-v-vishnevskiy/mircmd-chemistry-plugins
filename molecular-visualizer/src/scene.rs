@@ -38,7 +38,7 @@ impl Scene {
         let fov_factor = self.projection_manager.perspective_projection.get_fov() / 45.0;
         self.projection_manager
             .perspective_projection
-            .set_near_far_plane(scene_size / fov_factor, 8.0 * scene_size / fov_factor);
+            .set_near_far_plane(0.1, 10.0 * scene_size / fov_factor);
 
         self.camera.reset_to_default();
         self.camera.set_position(Vec3::new(0.0, 0.0, 3.0 * scene_size));

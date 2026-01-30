@@ -69,11 +69,15 @@ impl Scene {
         let scene_matrix = *self.transform.get_matrix();
         let view_projection = *self.projection_manager.get_matrix() * camera_matrix * scene_matrix * molecule.transform;
 
-        // Update uniform buffer
+        // Update uniform buffer with both matrices
+        let mut uniforms_data = [0.0f32; 32];
+        uniforms_data[..16].copy_from_slice(&view_projection.data);
+        uniforms_data[16..].copy_from_slice(&scene_matrix.data);
+
         queue.write_buffer(
             &self.renderer.uniform_buffer,
             0,
-            bytemuck::cast_slice(&view_projection.data),
+            bytemuck::cast_slice(&uniforms_data),
         );
 
         // Get current texture from surface

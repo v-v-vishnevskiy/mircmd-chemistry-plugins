@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::config::Config;
 use super::core::Vec3;
-use super::core::math::matrix::Mat4;
 use super::scene::Scene;
 use shared_lib::types::AtomicCoordinates;
 use wasm_bindgen::prelude::*;

@@ -2,7 +2,6 @@ pub mod camera;
 pub mod math;
 pub mod mesh;
 pub mod mesh_objects;
-pub mod node;
 pub mod projection;
 pub mod transform;
 

@@ -18,10 +18,10 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/main.wgsl").into()),
         });
 
-        // Create uniform buffer for view-projection matrix
+        // Create uniform buffer for view-projection and scene matrices
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[0.0f32; 16]),
+            contents: bytemuck::cast_slice(&[0.0f32; 32]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 

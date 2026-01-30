@@ -2,7 +2,7 @@ use super::config::Config;
 use super::core::{Camera, Mesh, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
-use super::vertex_buffer_object::VertexBufferObject;
+use super::vertex_buffer::VertexBuffer;
 use shared_lib::types::AtomicCoordinates;
 
 pub struct Scene {
@@ -13,7 +13,7 @@ pub struct Scene {
     camera: Camera,
     molecule: Option<Molecule>,
     cube_mesh: Mesh,
-    cube_vbo: VertexBufferObject,
+    cube_vb: VertexBuffer,
 }
 
 impl Scene {
@@ -25,7 +25,7 @@ impl Scene {
             camera: Camera::new(),
             molecule: None,
             transform: Transform::new(),
-            cube_vbo: VertexBufferObject::new(device, &cube_mesh),
+            cube_vb: VertexBuffer::new(device, &cube_mesh),
             cube_mesh,
         }
     }
@@ -129,8 +129,8 @@ impl Scene {
             });
 
             render_pass.set_pipeline(&self.renderer.pipeline);
-            render_pass.set_vertex_buffer(0, self.cube_vbo.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.cube_vbo.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
 
             // Render atoms

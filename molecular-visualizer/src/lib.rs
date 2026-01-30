@@ -5,5 +5,5 @@ mod molecule;
 mod renderer;
 mod scene;
 mod types;
-mod vertex_buffer_object;
+mod vertex_buffer;
 mod visualizer;

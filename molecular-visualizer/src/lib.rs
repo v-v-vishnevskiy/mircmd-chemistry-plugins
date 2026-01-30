@@ -7,3 +7,4 @@ mod scene;
 mod types;
 mod vertex_buffer;
 mod visualizer;
+mod utils;

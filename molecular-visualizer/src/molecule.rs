@@ -3,6 +3,7 @@ use super::config::Config;
 use super::core::mesh::InstanceData;
 use super::core::{Mat4, Quaternion, Transform, Vec3};
 use super::types::Color;
+use super::utils::id_to_color;
 use shared_lib::types::AtomicCoordinates;
 use wgpu::util::DeviceExt;
 
@@ -10,6 +11,7 @@ pub struct Molecule {
     atoms_transform: Vec<[[f32; 4]; 4]>,
     atoms_visibility: Vec<bool>,
     atoms_color: Vec<Color>,
+    atoms_picking_color: Vec<Color>,
     atoms_ray_casting: Vec<u32>,
 
     bonds_transform: Vec<[[f32; 4]; 4]>,
@@ -27,6 +29,7 @@ impl Molecule {
         let mut atoms_transform = Vec::new();
         let mut atoms_visibility = Vec::new();
         let mut atoms_color = Vec::new();
+        let mut atoms_picking_color = Vec::new();
         let mut atoms_ray_casting = Vec::new();
         let mut radius: f32 = 0.0;
         let num_atoms = atomic_coordinates.atomic_num.len();
@@ -73,6 +76,7 @@ impl Molecule {
             atoms_transform.push(matrix_4x4);
             atoms_visibility.push(true);
             atoms_color.push(atom.color);
+            atoms_picking_color.push(id_to_color(i + 1));
             atoms_ray_casting.push(1);
         }
 
@@ -82,13 +86,15 @@ impl Molecule {
         let data: Vec<InstanceData> = atoms_transform
             .iter()
             .zip(atoms_color.iter())
+            .zip(atoms_picking_color.iter())
             .zip(atoms_visibility.iter())
             .zip(atoms_ray_casting.iter())
-            .filter_map(|(((transform, color), visible), rc_type)| {
+            .filter_map(|((((transform, color), picking_color), visible), rc_type)| {
                 if *visible {
                     Some(InstanceData {
                         model_matrix: *transform,
                         color: *color,
+                        picking_color: *picking_color,
                         ray_casting_type: *rc_type,
                     })
                 } else {
@@ -160,6 +166,7 @@ impl Molecule {
             }
         }
 
+        let picking_color = Color::new(0.0, 0.0, 0.0, 1.0);
         let data: Vec<InstanceData> = bonds_transform
             .iter()
             .zip(bonds_color.iter())
@@ -168,6 +175,7 @@ impl Molecule {
                 Some(InstanceData {
                     model_matrix: *transform,
                     color: *color,
+                    picking_color: picking_color,
                     ray_casting_type: *rc_type,
                 })
             })
@@ -183,6 +191,7 @@ impl Molecule {
             atoms_transform,
             atoms_visibility,
             atoms_color,
+            atoms_picking_color,
             atoms_ray_casting,
             bonds_transform,
             bonds_color,

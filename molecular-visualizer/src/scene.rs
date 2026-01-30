@@ -69,7 +69,9 @@ impl Scene {
         let view_matrix = *self.camera.get_matrix();
         let scene_matrix = *self.transform.get_matrix() * molecule.transform;
         let final_matrix = projection_matrix * view_matrix * scene_matrix;
+        let render_mode = 0u32;
         let is_perspective = self.projection_manager.mode == ProjectionMode::Perspective;
+        let lighting_model = 1u32;
 
         // Update uniform buffer with all 4 matrices + projection type flag
         // matrix = (16 float × 4 байта) = 64 bytes
@@ -78,7 +80,9 @@ impl Scene {
         uniforms_data[64..128].copy_from_slice(bytemuck::cast_slice(&view_matrix.data));
         uniforms_data[128..192].copy_from_slice(bytemuck::cast_slice(&scene_matrix.data));
         uniforms_data[192..256].copy_from_slice(bytemuck::cast_slice(&final_matrix.data));
-        uniforms_data[256..260].copy_from_slice(&(if is_perspective { 1u32 } else { 0u32 }).to_le_bytes());
+        uniforms_data[256..260].copy_from_slice(&render_mode.to_le_bytes());
+        uniforms_data[260..264].copy_from_slice(&(if is_perspective { 1u32 } else { 0u32 }).to_le_bytes());
+        uniforms_data[264..268].copy_from_slice(&lighting_model.to_le_bytes());
 
         queue.write_buffer(&self.renderer.uniform_buffer, 0, &uniforms_data);
 
@@ -99,6 +103,22 @@ impl Scene {
 
         // Begin render pass
         {
+            let bg_color = if render_mode == 1 {
+                wgpu::Color {
+                    // picking
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                }
+            } else {
+                wgpu::Color {
+                    r: config.style.background_color.r as f64,
+                    g: config.style.background_color.g as f64,
+                    b: config.style.background_color.b as f64,
+                    a: 1.0,
+                }
+            };
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -106,12 +126,7 @@ impl Scene {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: config.style.background_color.r as f64,
-                            g: config.style.background_color.g as f64,
-                            b: config.style.background_color.b as f64,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(bg_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -138,7 +153,7 @@ impl Scene {
             render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
 
             // Render bonds
-            if molecule.bonds_instance_count() > 0 {
+            if render_mode == 0 && molecule.bonds_instance_count() > 0 {
                 render_pass.set_vertex_buffer(1, molecule.bonds_instance_buffer.slice(..));
                 render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.bonds_instance_count());
             }

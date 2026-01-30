@@ -18,7 +18,7 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/main.wgsl").into()),
         });
 
-        // Create uniform buffer for 4 matrices (256 bytes) + u32 flag (4 bytes) + padding (12 bytes)
+        // Create uniform buffer for 4 matrices (256 bytes) + 3 u32 flags (8 bytes) + padding (8 bytes)
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
             contents: &[0u8; 272],

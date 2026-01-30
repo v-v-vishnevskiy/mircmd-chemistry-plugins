@@ -1,5 +1,0 @@
-package mircmd:api;
-
-world program {
-    export run: func() -> string;
-}

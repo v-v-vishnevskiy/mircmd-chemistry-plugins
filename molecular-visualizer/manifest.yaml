@@ -2,7 +2,7 @@ target: Ui
 type: Program
 metadata:
   id: chemistry-molecular-visualizer
-  name: Chemistry Molecule Visualizer
+  name: Chemistry Molecular Visualizer
   version: 1.0.0
   publisher: mircmd
   description: Visualizes molecules in 3D

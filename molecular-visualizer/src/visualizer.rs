@@ -135,7 +135,7 @@ impl MolecularVisualizer {
     #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
         self.scene
-            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config);
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
 
         Ok(())
     }

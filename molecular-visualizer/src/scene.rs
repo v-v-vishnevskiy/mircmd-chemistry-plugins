@@ -58,7 +58,14 @@ impl Scene {
         }
     }
 
-    pub fn render(&mut self, surface: &wgpu::Surface, device: &wgpu::Device, queue: &wgpu::Queue, config: &Config) {
+    pub fn render(
+        &mut self,
+        surface: &wgpu::Surface,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        config: &Config,
+        render_mode: u32,
+    ) {
         let molecule = match &self.molecule {
             Some(molecule) => molecule,
             None => return,
@@ -69,7 +76,6 @@ impl Scene {
         let view_matrix = *self.camera.get_matrix();
         let scene_matrix = *self.transform.get_matrix() * molecule.transform;
         let final_matrix = projection_matrix * view_matrix * scene_matrix;
-        let render_mode = 0u32;
         let is_perspective = self.projection_manager.mode == ProjectionMode::Perspective;
         let lighting_model = 1u32;
 

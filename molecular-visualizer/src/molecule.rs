@@ -1,4 +1,10 @@
-use super::atom::Atom;
+use std::collections::HashSet;
+
+use shared_lib::periodic_table::get_element_by_number;
+use shared_lib::types::AtomicCoordinates;
+use wgpu::util::DeviceExt;
+
+use super::atom::{Atom, AtomInfo};
 use super::bond::Bond;
 use super::bonds;
 use super::config::Config;
@@ -6,9 +12,6 @@ use super::core::mesh::InstanceData;
 use super::core::{Mat4, Vec3};
 use super::types::Color;
 use super::utils::id_to_color;
-use shared_lib::types::AtomicCoordinates;
-use std::collections::HashSet;
-use wgpu::util::DeviceExt;
 
 pub struct Molecule {
     atoms: Vec<Atom>,
@@ -57,7 +60,13 @@ impl Molecule {
 
             radius = radius.max((position - center).length_squared() + atom.radius);
 
-            atoms.push(Atom::new(position, atom.radius, atom.color, id_to_color(i + 1)));
+            atoms.push(Atom::new(
+                atomic_coordinates.atomic_num[i],
+                position,
+                atom.radius,
+                atom.color,
+                id_to_color(i + 1),
+            ));
         }
 
         let bond_thickness = config.style.bond.thickness;
@@ -139,10 +148,32 @@ impl Molecule {
         self.bonds.len() as u32
     }
 
-    pub fn highlight_atom(&mut self, index: usize, device: &wgpu::Device) -> bool {
-        if index > self.atoms.len() || self.highlighted_atom == index {
-            return false;
+    /// Returns (atom_info, needs_render)
+    pub fn highlight_atom(&mut self, index: usize, device: &wgpu::Device) -> (Option<AtomInfo>, bool) {
+        if index == 0 || index > self.atoms.len() {
+            // No atom under cursor - clear highlight if any
+            if self.highlighted_atom > 0 {
+                self.atoms[self.highlighted_atom - 1].highlighted = false;
+                self.highlighted_atom = 0;
+                self.atoms_instance_buffer = Self::get_atoms_instance_buffer(&self.atoms, device);
+                return (None, true);
+            }
+            return (None, false);
         }
+
+        // Same atom already highlighted - return info without updating buffer
+        if self.highlighted_atom == index {
+            let element = match get_element_by_number(self.atoms[index - 1].number) {
+                Some(e) => e,
+                None => return (None, false),
+            };
+            return (Some(AtomInfo::new(element.symbol.to_string(), index)), false);
+        }
+
+        let element = match get_element_by_number(self.atoms[index - 1].number) {
+            Some(e) => e,
+            None => return (None, false),
+        };
 
         // Reset previous highlighted atom
         if self.highlighted_atom > 0 {
@@ -150,13 +181,10 @@ impl Molecule {
         }
 
         // Set new highlighted atom
-        if index > 0 {
-            self.atoms[index - 1].highlighted = true;
-        }
-
+        self.atoms[index - 1].highlighted = true;
         self.highlighted_atom = index;
         self.atoms_instance_buffer = Self::get_atoms_instance_buffer(&self.atoms, device);
-        true
+        (Some(AtomInfo::new(element.symbol.to_string(), index)), true)
     }
 }
 

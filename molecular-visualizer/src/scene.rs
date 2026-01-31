@@ -1,10 +1,12 @@
+use shared_lib::types::AtomicCoordinates;
+
+use super::atom::AtomInfo;
 use super::config::Config;
 use super::core::{Camera, Mesh, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
 use super::utils::color_to_id;
 use super::vertex_buffer::VertexBuffer;
-use shared_lib::types::AtomicCoordinates;
 
 pub struct Scene {
     pub projection_manager: ProjectionManager,
@@ -308,9 +310,16 @@ impl Scene {
         }
     }
 
-    pub async fn new_cursor_position(&mut self, x: u32, y: u32, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+    /// Returns (atom_info, needs_render)
+    pub async fn new_cursor_position(
+        &mut self,
+        x: u32,
+        y: u32,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> (Option<AtomInfo>, bool) {
         if self.molecule.is_none() {
-            return false;
+            return (None, false);
         }
 
         if self.picking_texture_dirty {

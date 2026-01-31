@@ -1,9 +1,36 @@
+use wasm_bindgen::prelude::*;
+
 use super::core::mesh::InstanceData;
 use super::core::{Mat4, Vec3};
 use super::types::Color;
 use super::utils::get_model_matrix;
 
+#[wasm_bindgen]
+pub struct AtomInfo {
+    symbol: String,
+    tag: usize,
+}
+
+#[wasm_bindgen]
+impl AtomInfo {
+    #[wasm_bindgen(constructor)]
+    pub fn new(symbol: String, tag: usize) -> Self {
+        Self { symbol, tag }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn symbol(&self) -> String {
+        self.symbol.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn tag(&self) -> usize {
+        self.tag
+    }
+}
+
 pub struct Atom {
+    pub number: i32,
     pub position: Vec3<f32>,
     pub radius: f32,
     pub color: Color,
@@ -14,8 +41,9 @@ pub struct Atom {
 }
 
 impl Atom {
-    pub fn new(position: Vec3<f32>, radius: f32, color: Color, picking_color: Color) -> Self {
+    pub fn new(number: i32, position: Vec3<f32>, radius: f32, color: Color, picking_color: Color) -> Self {
         Self {
+            number,
             position,
             radius,
             color,

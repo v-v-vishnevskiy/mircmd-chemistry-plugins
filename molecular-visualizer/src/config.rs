@@ -12,7 +12,7 @@ enum BondColorMode {
 }
 
 pub struct Bond {
-    pub radius: f32,
+    pub thickness: f32,
     pub color_mode: BondColorMode,
     pub color: Color,
 }
@@ -873,7 +873,7 @@ impl Style {
             background_color: Color::new(0.133, 0.133, 0.133, 1.0),
             atoms,
             bond: Bond {
-                radius: 0.1,
+                thickness: 0.1,
                 color_mode: BondColorMode::AtomColor,
                 color: Color::new(0.5, 0.5, 0.5, 1.0),
             },

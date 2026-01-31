@@ -3,7 +3,9 @@ struct Uniforms {
     view_transform: mat4x4<f32>,
     scene_transform: mat4x4<f32>,
     final_transform: mat4x4<f32>, // projection_transform * view_transform * scene_transform
-    is_perspective: u32,          // 1 = perspective, 0 = orthographic
+    render_mode: u32,             // 0 = normal, 1 = picking
+    is_perspective: u32,          // 0 = orthographic, 1 = perspective
+    lighting_model: u32,          // 0 = flat color, 1 = Blinn Phong
 };
 
 @group(0) @binding(0)
@@ -20,7 +22,8 @@ struct InstanceInput {
     @location(4) model_matrix_2: vec4<f32>,
     @location(5) model_matrix_3: vec4<f32>,
     @location(6) color: vec4<f32>,
-    @location(7) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
+    @location(7) picking_color: vec4<f32>,
+    @location(8) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
 };
 
 struct VertexOutput {
@@ -112,7 +115,6 @@ fn ray_casting_position(vertex: VertexInput, instance: InstanceInput) -> VertexO
 
     var output: VertexOutput;
     output.position = uniforms.final_transform * model_transform * vec4<f32>(vertex.position, 1.0);
-    output.color = instance.color;
 
     // Extract scale components from model and scene matrices
     let model_scale = get_scale(model_transform);
@@ -153,7 +155,6 @@ fn default_position(vertex: VertexInput, instance: InstanceInput) -> VertexOutpu
     var output: VertexOutput;
     output.position = uniforms.final_transform * model_transform * vec4<f32>(vertex.position, 1.0);
     output.normal = (uniforms.scene_transform * model_transform * vec4<f32>(vertex.normal, 0.0)).xyz;
-    output.color = instance.color;
     output.ray_casting_scale = vec3<f32>(0.0, 0.0, 0.0);
     output.sphere_center_view = vec3<f32>(0.0, 0.0, 0.0);
     output.vertex_pos_view = vec3<f32>(0.0, 0.0, 0.0);
@@ -172,6 +173,16 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
             output = default_position(vertex, instance);
         }
     }
+
+    switch uniforms.render_mode {
+        case 1u {
+            output.color = instance.picking_color;
+        }
+        default {
+            output.color = instance.color;
+        }
+    }
+    
     output.ray_casting_type = instance.ray_casting_type;
     return output;
 }
@@ -370,21 +381,35 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
         }
     }
 
-    let ambient_strength: f32 = 0.3;
-    let specular_strength: f32 = 0.6;
-    let shininess: f32 = 16.0;
-    let light_color = vec3<f32>(1.0, 1.0, 1.0) * 0.9;
-    let light_position = vec3<f32>(0.3, 0.3, 1.0);
+    switch uniforms.render_mode {
+        case 1u { // picking mode
+            output.color = in.color;
+        }
+        default {
+            switch uniforms.lighting_model {
+                case 1u {
+                    let ambient_strength: f32 = 0.3;
+                    let specular_strength: f32 = 0.6;
+                    let shininess: f32 = 16.0;
+                    let light_color = vec3<f32>(1.0, 1.0, 1.0) * 0.9;
+                    let light_position = vec3<f32>(0.3, 0.3, 1.0);
 
-    output.color = calculate_blinn_phong(
-        in.color, 
-        normal,
-        light_color, 
-        light_position, 
-        ambient_strength, 
-        specular_strength, 
-        shininess
-    );
+                    output.color = calculate_blinn_phong(
+                        in.color, 
+                        normal,
+                        light_color, 
+                        light_position, 
+                        ambient_strength, 
+                        specular_strength, 
+                        shininess
+                    );
+                }
+                default {
+                    output.color = in.color;
+                }
+            }
+        }
+    }
 
     return output;
 }

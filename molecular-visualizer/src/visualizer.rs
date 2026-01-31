@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use super::config::Config;
-use super::core::Vec3;
-use super::scene::Scene;
 use shared_lib::types::AtomicCoordinates;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
+
+use super::atom::AtomInfo;
+use super::config::Config;
+use super::core::Vec3;
+use super::scene::Scene;
 
 #[wasm_bindgen]
 pub struct MolecularVisualizer {
@@ -133,9 +135,21 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
+    pub async fn new_cursor_position(&mut self, x: u32, y: u32) -> Option<AtomInfo> {
+        let (atom, needs_render) = self.scene.new_cursor_position(x, y, &self.device, &self.queue).await;
+
+        if needs_render {
+            self.scene
+                .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        }
+
+        atom
+    }
+
+    #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
         self.scene
-            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config);
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
 
         Ok(())
     }

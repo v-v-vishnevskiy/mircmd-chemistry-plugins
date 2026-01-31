@@ -1,9 +1,15 @@
 import type { ProgramPluginContext } from './program_context';
 
+interface AtomInfo {
+    symbol: string;
+    tag: number;
+}
+
 interface MolecularVisualizerInstance {
     resize(width: number, height: number): void;
     scale_scene(factor: number): void;
     rotate_scene(pitch: number, yaw: number, roll: number): void;
+    new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
     render(): void;
 }
 
@@ -31,6 +37,8 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     }
 
     const canvas = create_canvas(ctx.root);
+    const container = canvas.parentElement as HTMLElement;
+    const overlay = create_overlay(container);
     const visualizer = await wasm_module.MolecularVisualizer.create(canvas, data);
     visualizer.render();
 
@@ -64,22 +72,30 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
         }
     });
 
-    canvas.addEventListener('mousemove', (event: MouseEvent) => {
-        if (!is_dragging) {
-            return;
+    canvas.addEventListener('mousemove', async (event: MouseEvent) => {
+        if (is_dragging) {
+            const delta_x = event.clientX - last_mouse_x;
+            const delta_y = event.clientY - last_mouse_y;
+
+            last_mouse_x = event.clientX;
+            last_mouse_y = event.clientY;
+
+            const yaw = delta_x * rotation_sensitivity;
+            const pitch = delta_y * rotation_sensitivity;
+
+            visualizer.rotate_scene(pitch, yaw, 0);
+            visualizer.render();
+            overlay.style.display = 'none';
+        } else {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const canvas_x = Math.floor((event.clientX - rect.left) * dpr);
+            const canvas_y = Math.floor((event.clientY - rect.top) * dpr);
+            const atom = await visualizer.new_cursor_position(canvas_x, canvas_y);
+            const overlay_x = event.clientX - rect.left;
+            const overlay_y = event.clientY - rect.top;
+            update_overlay(overlay, atom, overlay_x, overlay_y, container);
         }
-
-        const delta_x = event.clientX - last_mouse_x;
-        const delta_y = event.clientY - last_mouse_y;
-
-        last_mouse_x = event.clientX;
-        last_mouse_y = event.clientY;
-
-        const yaw = delta_x * rotation_sensitivity;
-        const pitch = delta_y * rotation_sensitivity;
-
-        visualizer.rotate_scene(pitch, yaw, 0);
-        visualizer.render();
     });
 
     canvas.addEventListener('mouseup', (event: MouseEvent) => {
@@ -90,6 +106,7 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
 
     canvas.addEventListener('mouseleave', () => {
         is_dragging = false;
+        overlay.style.display = 'none';
     });
 
     // Handle mouse wheel zoom
@@ -113,6 +130,7 @@ function create_canvas(root: ShadowRoot): HTMLCanvasElement {
     container.style.width = '100%';
     container.style.height = '100%';
     container.style.overflow = 'hidden';
+    container.style.position = 'relative';
 
     const canvas = document.createElement('canvas');
     canvas.style.display = 'block';
@@ -129,6 +147,58 @@ function create_canvas(root: ShadowRoot): HTMLCanvasElement {
     canvas.height = rect.height * dpr;
 
     return canvas;
+}
+
+function create_overlay(container: HTMLElement): HTMLDivElement {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.backgroundColor = '#44444499';
+    overlay.style.color = '#D8D8D8';
+    overlay.style.padding = '6px 10px';
+    overlay.style.borderRadius = '6px';
+    overlay.style.fontSize = '13px';
+    overlay.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.display = 'none';
+    overlay.style.whiteSpace = 'nowrap';
+    overlay.style.zIndex = '1000';
+
+    container.appendChild(overlay);
+    return overlay;
+}
+
+function update_overlay(
+    overlay: HTMLDivElement,
+    atom: AtomInfo | null,
+    x: number,
+    y: number,
+    container: HTMLElement
+): void {
+    if (!atom) {
+        overlay.style.display = 'none';
+        return;
+    }
+
+    overlay.textContent = `Atom: ${atom.symbol}${atom.tag}`;
+    overlay.style.display = 'block';
+
+    const offset_x = 6;
+    const offset_y = -6;
+    const container_rect = container.getBoundingClientRect();
+
+    let left = x + offset_x;
+    let top = y + offset_y - overlay.offsetHeight;
+
+    if (left + overlay.offsetWidth > container_rect.width) {
+        left = x - offset_x - overlay.offsetWidth;
+    }
+
+    if (top < 0) {
+        top = y + offset_x;
+    }
+
+    overlay.style.left = `${left}px`;
+    overlay.style.top = `${top}px`;
 }
 
 // Export instantiate function compatible with current plugin loader

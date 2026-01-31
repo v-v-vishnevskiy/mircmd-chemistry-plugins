@@ -1,3 +1,5 @@
+mod atom;
+mod bond;
 mod bonds;
 mod config;
 mod core;
@@ -5,6 +7,6 @@ mod molecule;
 mod renderer;
 mod scene;
 mod types;
+mod utils;
 mod vertex_buffer;
 mod visualizer;
-mod utils;

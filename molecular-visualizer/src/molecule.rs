@@ -1,36 +1,30 @@
+use super::atom::Atom;
+use super::bond::Bond;
 use super::bonds;
 use super::config::Config;
 use super::core::mesh::InstanceData;
-use super::core::{Mat4, Quaternion, Transform, Vec3};
+use super::core::{Mat4, Vec3};
 use super::types::Color;
 use super::utils::id_to_color;
 use shared_lib::types::AtomicCoordinates;
+use std::collections::HashSet;
 use wgpu::util::DeviceExt;
 
 pub struct Molecule {
-    atoms_transform: Vec<[[f32; 4]; 4]>,
-    atoms_visibility: Vec<bool>,
-    atoms_color: Vec<Color>,
-    atoms_picking_color: Vec<Color>,
-    atoms_ray_casting: Vec<u32>,
-
-    bonds_transform: Vec<[[f32; 4]; 4]>,
-    bonds_color: Vec<Color>,
-    bonds_ray_casting: Vec<u32>,
+    atoms: Vec<Atom>,
+    bonds: Vec<Bond>,
 
     pub radius: f32,
     pub transform: Mat4<f32>,
     pub atoms_instance_buffer: wgpu::Buffer,
     pub bonds_instance_buffer: wgpu::Buffer,
+
+    highlighted_atom: usize, // atom (index starts from 1) under cursor, 0 = no atoms under cursor
+    selected_atoms: HashSet<usize>,
 }
 
 impl Molecule {
     pub fn new(device: &wgpu::Device, config: &Config, atomic_coordinates: &AtomicCoordinates) -> Result<Self, String> {
-        let mut atoms_transform = Vec::new();
-        let mut atoms_visibility = Vec::new();
-        let mut atoms_color = Vec::new();
-        let mut atoms_picking_color = Vec::new();
-        let mut atoms_ray_casting = Vec::new();
         let mut radius: f32 = 0.0;
         let num_atoms = atomic_coordinates.atomic_num.len();
 
@@ -44,16 +38,16 @@ impl Molecule {
             z as f32 / num_atoms as f32,
         );
 
+        let mut transform = Mat4::new();
+        transform.translate(-center);
+
+        let mut atoms = Vec::new();
+        let atoms_style = &config.style.atoms;
         for i in 0..num_atoms {
-            let atom = config
-                .style
-                .atoms
-                .get(&atomic_coordinates.atomic_num[i])
-                .ok_or(format!(
-                    "Atom not found for atomic number: {}",
-                    atomic_coordinates.atomic_num[i]
-                ))?;
-            let mut transform = Transform::new();
+            let atom = atoms_style.get(&atomic_coordinates.atomic_num[i]).ok_or(format!(
+                "Atom not found for atomic number: {}",
+                atomic_coordinates.atomic_num[i]
+            ))?;
 
             let position = Vec3::new(
                 atomic_coordinates.x[i] as f32,
@@ -63,152 +57,106 @@ impl Molecule {
 
             radius = radius.max((position - center).length_squared() + atom.radius);
 
-            transform.set_position(position);
-            transform.set_scale(Vec3::new(atom.radius, atom.radius, atom.radius));
-
-            let matrix = transform.get_matrix().data;
-            let matrix_4x4: [[f32; 4]; 4] = [
-                [matrix[0], matrix[1], matrix[2], matrix[3]],
-                [matrix[4], matrix[5], matrix[6], matrix[7]],
-                [matrix[8], matrix[9], matrix[10], matrix[11]],
-                [matrix[12], matrix[13], matrix[14], matrix[15]],
-            ];
-            atoms_transform.push(matrix_4x4);
-            atoms_visibility.push(true);
-            atoms_color.push(atom.color);
-            atoms_picking_color.push(id_to_color(i + 1));
-            atoms_ray_casting.push(1);
+            atoms.push(Atom::new(position, atom.radius, atom.color, id_to_color(i + 1)));
         }
 
-        let mut transform = Mat4::new();
-        transform.translate(-center);
+        let bond_thickness = config.style.bond.thickness;
+        let mut bonds = Vec::new();
+        let bonds_list = bonds::build(atomic_coordinates, config.style.geom_bond_tolerance);
+        for bond in bonds_list {
+            let atom_1 = &atoms[bond.atom_index_1];
+            let atom_2 = &atoms[bond.atom_index_2];
 
-        let data: Vec<InstanceData> = atoms_transform
+            let computed_bonds = get_bonds(
+                atom_1.position,
+                atom_1.radius,
+                atom_1.color,
+                atom_2.position,
+                atom_2.radius,
+                atom_2.color,
+            );
+
+            for b in computed_bonds {
+                bonds.push(Bond::new(b.0, b.1, bond_thickness, b.2, b.3));
+            }
+        }
+
+        Ok(Self {
+            atoms_instance_buffer: Self::get_atoms_instance_buffer(&atoms, device),
+            bonds_instance_buffer: Self::get_bonds_instance_buffer(&bonds, device),
+            atoms,
+            bonds,
+            radius: radius.sqrt(),
+            transform: transform,
+            highlighted_atom: 0,
+            selected_atoms: HashSet::new(),
+        })
+    }
+
+    fn get_atoms_instance_buffer(data: &Vec<Atom>, device: &wgpu::Device) -> wgpu::Buffer {
+        let data: Vec<InstanceData> = data
             .iter()
-            .zip(atoms_color.iter())
-            .zip(atoms_picking_color.iter())
-            .zip(atoms_visibility.iter())
-            .zip(atoms_ray_casting.iter())
-            .filter_map(|((((transform, color), picking_color), visible), rc_type)| {
-                if *visible {
-                    Some(InstanceData {
-                        model_matrix: *transform,
-                        color: *color,
-                        picking_color: *picking_color,
-                        ray_casting_type: *rc_type,
-                    })
+            .filter_map(|item| {
+                if item.visible {
+                    Some(item.get_instance_data())
                 } else {
                     None
                 }
             })
             .collect();
 
-        let atoms_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Atoms Instance Buffer"),
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&data),
             usage: wgpu::BufferUsages::VERTEX,
-        });
+        })
+    }
 
-        let bond_radius = config.style.bond.radius;
-        let mut bonds_transform = Vec::new();
-        let mut bonds_color = Vec::new();
-        let mut bonds_ray_casting = Vec::new();
-        let bonds_list = bonds::build(atomic_coordinates, config.style.geom_bond_tolerance);
-        for bond in bonds_list {
-            let atom_1 = config
-                .style
-                .atoms
-                .get(&atomic_coordinates.atomic_num[bond.atom_index_1])
-                .ok_or(format!(
-                    "Atom not found for atomic number: {}",
-                    atomic_coordinates.atomic_num[bond.atom_index_1]
-                ))?;
-
-            let atom_2 = config
-                .style
-                .atoms
-                .get(&atomic_coordinates.atomic_num[bond.atom_index_2])
-                .ok_or(format!(
-                    "Atom not found for atomic number: {}",
-                    atomic_coordinates.atomic_num[bond.atom_index_2]
-                ))?;
-
-            let computed_bonds = get_bonds(
-                Vec3::new(
-                    atomic_coordinates.x[bond.atom_index_1] as f32,
-                    atomic_coordinates.y[bond.atom_index_1] as f32,
-                    atomic_coordinates.z[bond.atom_index_1] as f32,
-                ),
-                atom_1.radius,
-                atom_1.color,
-                Vec3::new(
-                    atomic_coordinates.x[bond.atom_index_2] as f32,
-                    atomic_coordinates.y[bond.atom_index_2] as f32,
-                    atomic_coordinates.z[bond.atom_index_2] as f32,
-                ),
-                atom_2.radius,
-                atom_2.color,
-            );
-
-            for b in computed_bonds {
-                let mut transform = b.0;
-                transform.set_scale(Vec3::new(bond_radius, bond_radius, b.1));
-                let matrix = transform.get_matrix().data;
-                let matrix_4x4: [[f32; 4]; 4] = [
-                    [matrix[0], matrix[1], matrix[2], matrix[3]],
-                    [matrix[4], matrix[5], matrix[6], matrix[7]],
-                    [matrix[8], matrix[9], matrix[10], matrix[11]],
-                    [matrix[12], matrix[13], matrix[14], matrix[15]],
-                ];
-                bonds_transform.push(matrix_4x4);
-                bonds_color.push(b.2);
-                bonds_ray_casting.push(2);
-            }
-        }
-
-        let picking_color = Color::new(0.0, 0.0, 0.0, 1.0);
-        let data: Vec<InstanceData> = bonds_transform
+    fn get_bonds_instance_buffer(data: &Vec<Bond>, device: &wgpu::Device) -> wgpu::Buffer {
+        let data: Vec<InstanceData> = data
             .iter()
-            .zip(bonds_color.iter())
-            .zip(bonds_ray_casting.iter())
-            .filter_map(|((transform, color), rc_type)| {
-                Some(InstanceData {
-                    model_matrix: *transform,
-                    color: *color,
-                    picking_color: picking_color,
-                    ray_casting_type: *rc_type,
-                })
+            .filter_map(|item| {
+                if item.visible {
+                    Some(item.get_instance_data())
+                } else {
+                    None
+                }
             })
             .collect();
 
-        let bonds_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Bonds Instance Buffer"),
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&data),
             usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        Ok(Self {
-            atoms_transform,
-            atoms_visibility,
-            atoms_color,
-            atoms_picking_color,
-            atoms_ray_casting,
-            bonds_transform,
-            bonds_color,
-            bonds_ray_casting,
-            radius: radius.sqrt(),
-            transform: transform,
-            atoms_instance_buffer,
-            bonds_instance_buffer,
         })
     }
 
     pub fn atoms_instance_count(&self) -> u32 {
-        self.atoms_transform.len() as u32
+        self.atoms.len() as u32
     }
 
     pub fn bonds_instance_count(&self) -> u32 {
-        self.bonds_transform.len() as u32
+        self.bonds.len() as u32
+    }
+
+    pub fn highlight_atom(&mut self, index: usize, device: &wgpu::Device) -> bool {
+        if index > self.atoms.len() || self.highlighted_atom == index {
+            return false;
+        }
+
+        // Reset previous highlighted atom
+        if self.highlighted_atom > 0 {
+            self.atoms[self.highlighted_atom - 1].highlighted = false;
+        }
+
+        // Set new highlighted atom
+        if index > 0 {
+            self.atoms[index - 1].highlighted = true;
+        }
+
+        self.highlighted_atom = index;
+        self.atoms_instance_buffer = Self::get_atoms_instance_buffer(&self.atoms, device);
+        true
     }
 }
 
@@ -219,7 +167,7 @@ fn get_bonds(
     pos_2: Vec3<f32>,
     radius_2: f32,
     color_2: Color,
-) -> Vec<(Transform, f32, Color)> {
+) -> Vec<(Vec3<f32>, Vec3<f32>, f32, Color)> {
     let direction = (pos_2 - pos_1).normalized();
     let length = (pos_2 - pos_1).length();
     let mid_length = (length - radius_1 - radius_2) / 2.0;
@@ -236,16 +184,10 @@ fn get_bonds(
 
     let mut result = Vec::new();
     for bond in bonds {
-        let mut transform = Transform::new();
         let (pos, direction, l, color) = bond;
         let length = l / 2.0;
 
-        let position = pos + direction * length;
-        let rotation = Quaternion::rotation_to(Vec3::new(0.0, 0.0, 1.0), direction);
-
-        transform.set_position(position);
-        transform.set_rotation(rotation);
-        result.push((transform, length, color));
+        result.push((pos + direction * length, direction, length, color));
     }
     result
 }

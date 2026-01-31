@@ -4,6 +4,7 @@ interface MolecularVisualizerInstance {
     resize(width: number, height: number): void;
     scale_scene(factor: number): void;
     rotate_scene(pitch: number, yaw: number, roll: number): void;
+    new_cursor_position(x: number, y: number): void;
     render(): void;
 }
 
@@ -65,21 +66,21 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     });
 
     canvas.addEventListener('mousemove', (event: MouseEvent) => {
-        if (!is_dragging) {
-            return;
+        if (is_dragging) {
+            const delta_x = event.clientX - last_mouse_x;
+            const delta_y = event.clientY - last_mouse_y;
+
+            last_mouse_x = event.clientX;
+            last_mouse_y = event.clientY;
+
+            const yaw = delta_x * rotation_sensitivity;
+            const pitch = delta_y * rotation_sensitivity;
+
+            visualizer.rotate_scene(pitch, yaw, 0);
+            visualizer.render();
+        } else {
+            visualizer.new_cursor_position(event.clientX, event.clientY);
         }
-
-        const delta_x = event.clientX - last_mouse_x;
-        const delta_y = event.clientY - last_mouse_y;
-
-        last_mouse_x = event.clientX;
-        last_mouse_y = event.clientY;
-
-        const yaw = delta_x * rotation_sensitivity;
-        const pitch = delta_y * rotation_sensitivity;
-
-        visualizer.rotate_scene(pitch, yaw, 0);
-        visualizer.render();
     });
 
     canvas.addEventListener('mouseup', (event: MouseEvent) => {

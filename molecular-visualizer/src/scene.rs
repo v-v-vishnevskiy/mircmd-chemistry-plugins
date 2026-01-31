@@ -14,6 +14,8 @@ pub struct Scene {
     molecule: Option<Molecule>,
     cube_mesh: Mesh,
     cube_vb: VertexBuffer,
+
+    update_picking_texture: bool,
 }
 
 impl Scene {
@@ -27,6 +29,7 @@ impl Scene {
             transform: Transform::new(),
             cube_vb: VertexBuffer::new(device, &cube_mesh),
             cube_mesh,
+            update_picking_texture: true,
         }
     }
 
@@ -168,5 +171,24 @@ impl Scene {
         // Submit commands
         queue.submit(std::iter::once(encoder.finish()));
         surface_texture.present();
+        self.update_picking_texture = true;
+    }
+
+    pub fn new_cursor_position(&mut self, x: u32, y: u32, device: &wgpu::Device) -> bool {
+        let molecule = match &mut self.molecule {
+            Some(molecule) => molecule,
+            None => return false,
+        };
+
+        if self.update_picking_texture == true {
+            // TODO: Update picking texture
+        }
+        let mut atom_index: usize = 0;
+        // TODO: find atom index
+        if molecule.highlight_atom(atom_index, device) {
+            true
+        } else {
+            false
+        }
     }
 }

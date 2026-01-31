@@ -133,8 +133,8 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
-    pub fn new_cursor_position(&mut self, x: u32, y: u32) {
-        if self.scene.new_cursor_position(x, y, &self.device) {
+    pub async fn new_cursor_position(&mut self, x: u32, y: u32) {
+        if self.scene.new_cursor_position(x, y, &self.device, &self.queue).await {
             self.scene
                 .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
         }

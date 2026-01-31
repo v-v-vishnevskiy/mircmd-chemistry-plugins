@@ -10,9 +10,9 @@ pub fn id_to_color(id: usize) -> Color {
     Color::new(r, g, b, 1.0)
 }
 
-// pub fn color_to_id(r: u8, g: u8, b: u8) -> usize {
-//     b as usize | (g << 8) as usize | (r << 16) as usize
-// }
+pub fn color_to_id(r: u8, g: u8, b: u8) -> usize {
+    (r as usize) << 16 | (g as usize) << 8 | (b as usize)
+}
 
 pub fn get_model_matrix(mat: &Mat4<f32>) -> [[f32; 4]; 4] {
     let matrix = mat.data;

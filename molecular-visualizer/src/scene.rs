@@ -115,22 +115,6 @@ impl Scene {
 
         // Begin render pass
         {
-            let bg_color = if render_mode == 1 {
-                wgpu::Color {
-                    // picking
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                }
-            } else {
-                wgpu::Color {
-                    r: config.style.background_color.r as f64,
-                    g: config.style.background_color.g as f64,
-                    b: config.style.background_color.b as f64,
-                    a: 1.0,
-                }
-            };
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -138,7 +122,12 @@ impl Scene {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(bg_color),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: config.style.background_color.r as f64,
+                            g: config.style.background_color.g as f64,
+                            b: config.style.background_color.b as f64,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],

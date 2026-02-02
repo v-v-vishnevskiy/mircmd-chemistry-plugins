@@ -6,6 +6,11 @@ pub struct Atom {
     pub color: Color,
 }
 
+pub struct SelectedAtom {
+    pub color: Color,
+    pub scale_factor: f32,
+}
+
 enum BondColorMode {
     OwnColor,
     AtomColor,
@@ -20,6 +25,7 @@ pub struct Bond {
 pub struct Style {
     pub background_color: Color,
     pub atoms: HashMap<i32, Atom>,
+    pub selected_atom: SelectedAtom,
     pub bond: Bond,
     pub geom_bond_tolerance: f64,
 }
@@ -872,6 +878,7 @@ impl Style {
         Self {
             background_color: Color::new(0.133, 0.133, 0.133, 1.0),
             atoms,
+            selected_atom: SelectedAtom {color: Color::new(0.58, 1.0, 1.0, 0.3), scale_factor: 1.4},
             bond: Bond {
                 thickness: 0.1,
                 color_mode: BondColorMode::AtomColor,

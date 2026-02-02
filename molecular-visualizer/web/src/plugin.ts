@@ -10,6 +10,7 @@ interface MolecularVisualizerInstance {
     scale_scene(factor: number): void;
     rotate_scene(pitch: number, yaw: number, roll: number): void;
     new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
+    toggle_atom_selection(x: number, y: number): Promise<void>;
     render(): void;
 }
 
@@ -53,13 +54,14 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
             canvas.width = width;
             canvas.height = height;
             visualizer.resize(width, height);
-            visualizer.render();
         }
     });
     resize_observer.observe(canvas);
 
     // Handle mouse rotation
     let is_dragging = false;
+    let has_dragged = false;
+    let is_async_busy = false;
     let last_mouse_x = 0;
     let last_mouse_y = 0;
     const rotation_sensitivity = 0.5;
@@ -67,13 +69,30 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     canvas.addEventListener('mousedown', (event: MouseEvent) => {
         if (event.button === 0) {
             is_dragging = true;
+            has_dragged = false;
             last_mouse_x = event.clientX;
             last_mouse_y = event.clientY;
         }
     });
 
+    canvas.addEventListener('click', async (event: MouseEvent) => {
+        if (event.button === 0 && !has_dragged && !is_async_busy) {
+            is_async_busy = true;
+            try {
+                const rect = canvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                const canvas_x = Math.floor((event.clientX - rect.left) * dpr);
+                const canvas_y = Math.floor((event.clientY - rect.top) * dpr);
+                await visualizer.toggle_atom_selection(canvas_x, canvas_y);
+            } finally {
+                is_async_busy = false;
+            }
+        }
+    });
+
     canvas.addEventListener('mousemove', async (event: MouseEvent) => {
         if (is_dragging) {
+            has_dragged = true;
             const delta_x = event.clientX - last_mouse_x;
             const delta_y = event.clientY - last_mouse_y;
 
@@ -84,17 +103,21 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
             const pitch = delta_y * rotation_sensitivity;
 
             visualizer.rotate_scene(pitch, yaw, 0);
-            visualizer.render();
             overlay.style.display = 'none';
-        } else {
-            const rect = canvas.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            const canvas_x = Math.floor((event.clientX - rect.left) * dpr);
-            const canvas_y = Math.floor((event.clientY - rect.top) * dpr);
-            const atom = await visualizer.new_cursor_position(canvas_x, canvas_y);
-            const overlay_x = event.clientX - rect.left;
-            const overlay_y = event.clientY - rect.top;
-            update_overlay(overlay, atom, overlay_x, overlay_y, container);
+        } else if (!is_async_busy) {
+            is_async_busy = true;
+            try {
+                const rect = canvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                const canvas_x = Math.floor((event.clientX - rect.left) * dpr);
+                const canvas_y = Math.floor((event.clientY - rect.top) * dpr);
+                const atom = await visualizer.new_cursor_position(canvas_x, canvas_y);
+                const overlay_x = event.clientX - rect.left;
+                const overlay_y = event.clientY - rect.top;
+                update_overlay(overlay, atom, overlay_x, overlay_y, container);
+            } finally {
+                is_async_busy = false;
+            }
         }
     });
 
@@ -117,7 +140,6 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
 
         const factor = 1.0 - event.deltaY * zoom_sensitivity;
         visualizer.scale_scene(factor);
-        visualizer.render();
     }, { passive: false });
 }
 

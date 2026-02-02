@@ -22,14 +22,14 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
+    pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration) -> Self {
         let cube_mesh = mesh_objects::cube::create(2.0);
         Self {
-            renderer: Renderer::new(device, config),
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
+            transform: Transform::new(),
+            renderer: Renderer::new(device, surface_config),
             camera: Camera::new(),
             molecule: None,
-            transform: Transform::new(),
             cube_vb: VertexBuffer::new(device, &cube_mesh),
             cube_mesh,
             picking_texture_dirty: true,
@@ -161,13 +161,33 @@ impl Scene {
             render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
 
             // Render atoms
-            render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
-            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
+            if molecule.atoms_instance_count() > 0 {
+                render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.atoms_instance_count() as u32,
+                );
+            }
+
+            // Render bounding spheres
+            if molecule.bounding_spheres_instance_count() > 0 {
+                render_pass.set_vertex_buffer(1, molecule.atom_selections_instance_buffer.slice(..));
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.bounding_spheres_instance_count() as u32,
+                );
+            }
 
             // Render bonds
-            if render_mode == 0 && molecule.bonds_instance_count() > 0 {
+            if molecule.bonds_instance_count() > 0 {
                 render_pass.set_vertex_buffer(1, molecule.bonds_instance_buffer.slice(..));
-                render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.bonds_instance_count());
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.bonds_instance_count() as u32,
+                );
             }
         }
 
@@ -239,7 +259,11 @@ impl Scene {
 
             // Render atoms only (bonds don't have picking IDs)
             render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
-            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
+            render_pass.draw_indexed(
+                0..self.cube_mesh.num_indices,
+                0,
+                0..molecule.atoms_instance_count() as u32,
+            );
         }
 
         queue.submit(std::iter::once(encoder.finish()));
@@ -330,5 +354,20 @@ impl Scene {
 
         let molecule = self.molecule.as_mut().unwrap();
         molecule.highlight_atom(atom_index, device)
+    }
+
+    pub async fn toggle_atom_selection(&mut self, x: u32, y: u32, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        if self.molecule.is_none() {
+            return false;
+        }
+
+        if self.picking_texture_dirty {
+            self.render_picking_pass(device, queue);
+        }
+
+        let atom_index = self.read_picking_pixel(x, y, device, queue).await;
+
+        let molecule = self.molecule.as_mut().unwrap();
+        molecule.toggle_atom_selection(atom_index, device)
     }
 }

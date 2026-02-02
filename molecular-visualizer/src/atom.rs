@@ -35,30 +35,58 @@ pub struct Atom {
     pub radius: f32,
     pub color: Color,
     pub picking_color: Color,
+    pub bounding_sphere_color: Color,
+    pub bounding_sphere_scale_factor: f32,
     pub visible: bool,
     pub highlighted: bool,
     pub selected: bool,
 }
 
 impl Atom {
-    pub fn new(number: i32, position: Vec3<f32>, radius: f32, color: Color, picking_color: Color) -> Self {
+    pub fn new(
+        number: i32,
+        position: Vec3<f32>,
+        radius: f32,
+        color: Color,
+        picking_color: Color,
+        bounding_sphere_color: Color,
+        bounding_sphere_scale_factor: f32,
+    ) -> Self {
         Self {
             number,
             position,
             radius,
             color,
             picking_color,
+            bounding_sphere_color,
+            bounding_sphere_scale_factor,
             visible: true,
             highlighted: false,
             selected: false,
         }
     }
 
-    pub fn get_instance_data(&self) -> InstanceData {
-        let radius = if self.highlighted {
-            self.radius * 1.15
+    pub fn toggle_selection(&mut self) {
+        self.selected = !self.selected;
+    }
+
+    pub fn get_instance_data(&self, bounding_sphere: bool) -> InstanceData {
+        let radius_factor = if bounding_sphere {
+            self.bounding_sphere_scale_factor
         } else {
-            self.radius
+            1.0
+        };
+
+        let radius = if self.highlighted {
+            self.radius * 1.15 * radius_factor
+        } else {
+            self.radius * radius_factor
+        };
+
+        let color = if bounding_sphere {
+            self.bounding_sphere_color
+        } else {
+            self.color
         };
 
         let mut transform: Mat4<f32> = Mat4::new();
@@ -68,8 +96,9 @@ impl Atom {
 
         InstanceData {
             model_matrix: get_model_matrix(&transform),
-            color: self.color,
+            color: color,
             picking_color: self.picking_color,
+            lighting_model: if bounding_sphere { 0 } else { 1 },
             ray_casting_type: 1,
         }
     }

@@ -20,6 +20,7 @@ pub struct Molecule {
     pub radius: f32,
     pub transform: Mat4<f32>,
     pub atoms_instance_buffer: wgpu::Buffer,
+    pub atom_selections_instance_buffer: wgpu::Buffer,
     pub bonds_instance_buffer: wgpu::Buffer,
 
     highlighted_atom: usize, // atom (index starts from 1) under cursor, 0 = no atoms under cursor
@@ -66,6 +67,8 @@ impl Molecule {
                 atom.radius,
                 atom.color,
                 id_to_color(i + 1),
+                config.style.selected_atom.color,
+                config.style.selected_atom.scale_factor,
             ));
         }
 
@@ -90,30 +93,23 @@ impl Molecule {
             }
         }
 
+        let (atoms_instance_buffer, atom_selections_instance_buffer) =
+            Self::create_atoms_instance_buffers(&atoms, device);
+
         Ok(Self {
-            atoms_instance_buffer: Self::get_atoms_instance_buffer(&atoms, device),
-            bonds_instance_buffer: Self::get_bonds_instance_buffer(&bonds, device),
+            atoms_instance_buffer: atoms_instance_buffer,
+            bonds_instance_buffer: Self::create_bonds_instance_buffer(&bonds, device),
+            atom_selections_instance_buffer: atom_selections_instance_buffer,
             atoms,
             bonds,
             radius: radius.sqrt(),
-            transform: transform,
+            transform,
             highlighted_atom: 0,
             selected_atoms: HashSet::new(),
         })
     }
 
-    fn get_atoms_instance_buffer(data: &Vec<Atom>, device: &wgpu::Device) -> wgpu::Buffer {
-        let data: Vec<InstanceData> = data
-            .iter()
-            .filter_map(|item| {
-                if item.visible {
-                    Some(item.get_instance_data())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
+    fn create_instance_buffer(data: &Vec<InstanceData>, device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&data),
@@ -121,31 +117,45 @@ impl Molecule {
         })
     }
 
-    fn get_bonds_instance_buffer(data: &Vec<Bond>, device: &wgpu::Device) -> wgpu::Buffer {
-        let data: Vec<InstanceData> = data
-            .iter()
-            .filter_map(|item| {
-                if item.visible {
-                    Some(item.get_instance_data())
-                } else {
-                    None
+    fn create_atoms_instance_buffers(atoms: &Vec<Atom>, device: &wgpu::Device) -> (wgpu::Buffer, wgpu::Buffer) {
+        let mut atoms_data: Vec<InstanceData> = Vec::new();
+        let mut spheres_data: Vec<InstanceData> = Vec::new();
+        for atom in atoms {
+            if atom.visible {
+                atoms_data.push(atom.get_instance_data(false));
+                if atom.selected {
+                    spheres_data.push(atom.get_instance_data(true));
                 }
-            })
-            .collect();
+            }
+        }
 
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&data),
-            usage: wgpu::BufferUsages::VERTEX,
-        })
+        (
+            Self::create_instance_buffer(&atoms_data, device),
+            Self::create_instance_buffer(&spheres_data, device),
+        )
     }
 
-    pub fn atoms_instance_count(&self) -> u32 {
-        self.atoms.len() as u32
+    fn create_bonds_instance_buffer(bonds: &Vec<Bond>, device: &wgpu::Device) -> wgpu::Buffer {
+        Self::create_instance_buffer(
+            &bonds
+                .iter()
+                .filter(|item| item.visible)
+                .map(|item| item.get_instance_data())
+                .collect(),
+            device,
+        )
     }
 
-    pub fn bonds_instance_count(&self) -> u32 {
-        self.bonds.len() as u32
+    pub fn atoms_instance_count(&self) -> usize {
+        self.atoms.len()
+    }
+
+    pub fn bounding_spheres_instance_count(&self) -> usize {
+        self.selected_atoms.len()
+    }
+
+    pub fn bonds_instance_count(&self) -> usize {
+        self.bonds.len()
     }
 
     /// Returns (atom_info, needs_render)
@@ -155,7 +165,8 @@ impl Molecule {
             if self.highlighted_atom > 0 {
                 self.atoms[self.highlighted_atom - 1].highlighted = false;
                 self.highlighted_atom = 0;
-                self.atoms_instance_buffer = Self::get_atoms_instance_buffer(&self.atoms, device);
+                (self.atoms_instance_buffer, self.atom_selections_instance_buffer) =
+                    Self::create_atoms_instance_buffers(&self.atoms, device);
                 return (None, true);
             }
             return (None, false);
@@ -183,8 +194,27 @@ impl Molecule {
         // Set new highlighted atom
         self.atoms[index - 1].highlighted = true;
         self.highlighted_atom = index;
-        self.atoms_instance_buffer = Self::get_atoms_instance_buffer(&self.atoms, device);
+        (self.atoms_instance_buffer, self.atom_selections_instance_buffer) =
+            Self::create_atoms_instance_buffers(&self.atoms, device);
         (Some(AtomInfo::new(element.symbol.to_string(), index)), true)
+    }
+
+    pub fn toggle_atom_selection(&mut self, index: usize, device: &wgpu::Device) -> bool {
+        if index == 0 || index > self.atoms.len() {
+            // No atom under cursor - clear highlight if any
+            return false;
+        }
+
+        if self.atoms[index - 1].selected {
+            self.selected_atoms.remove(&(index - 1));
+        } else {
+            self.selected_atoms.insert(index - 1);
+        }
+
+        self.atoms[index - 1].toggle_selection();
+        (self.atoms_instance_buffer, self.atom_selections_instance_buffer) =
+            Self::create_atoms_instance_buffers(&self.atoms, device);
+        true
     }
 }
 

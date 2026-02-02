@@ -35,6 +35,7 @@ pub struct InstanceData {
     pub model_matrix: [[f32; 4]; 4],
     pub color: Color,
     pub picking_color: Color,
+    pub lighting_model: u32,
     pub ray_casting_type: u32,
 }
 
@@ -70,20 +71,26 @@ impl InstanceData {
                 },
                 // Color
                 wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 4]>() * 4) as wgpu::BufferAddress,
+                    offset: (std::mem::size_of::<[f32; 4]>() * 4) as wgpu::BufferAddress, // offset 64
                     shader_location: 6,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Picking color
                 wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 4]>() * 5) as wgpu::BufferAddress,
+                    offset: (std::mem::size_of::<[f32; 4]>() * 5) as wgpu::BufferAddress, // offset 80
                     shader_location: 7,
                     format: wgpu::VertexFormat::Float32x4,
                 },
+                // Lighting model
+                wgpu::VertexAttribute {
+                    offset: (std::mem::size_of::<[f32; 4]>() * 6) as wgpu::BufferAddress, // offset 96
+                    shader_location: 8,
+                    format: wgpu::VertexFormat::Uint32,
+                },
                 // Ray Casting Type
                 wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 4]>() * 6) as wgpu::BufferAddress,
-                    shader_location: 8,
+                    offset: (std::mem::size_of::<[f32; 4]>() * 6 + std::mem::size_of::<u32>()) as wgpu::BufferAddress, // offset 100
+                    shader_location: 9,
                     format: wgpu::VertexFormat::Uint32,
                 },
             ],

@@ -113,6 +113,8 @@ impl MolecularVisualizer {
             self.surface.configure(&self.device, &self.config);
             self.scene.resize(&self.device, &self.config);
             self.scene.projection_manager.set_viewport(width, height);
+            self.scene
+                .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
         }
     }
 
@@ -123,6 +125,8 @@ impl MolecularVisualizer {
         }
 
         self.scene.transform.rotate(pitch, yaw, roll);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 
     #[wasm_bindgen]
@@ -132,6 +136,8 @@ impl MolecularVisualizer {
         }
 
         self.scene.transform.scale(Vec3::new(factor, factor, factor));
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 
     #[wasm_bindgen]
@@ -144,6 +150,14 @@ impl MolecularVisualizer {
         }
 
         atom
+    }
+
+    #[wasm_bindgen]
+    pub async fn toggle_atom_selection(&mut self, x: u32, y: u32) {
+        if self.scene.toggle_atom_selection(x, y, &self.device, &self.queue).await {
+            self.scene
+                .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        }
     }
 
     #[wasm_bindgen]

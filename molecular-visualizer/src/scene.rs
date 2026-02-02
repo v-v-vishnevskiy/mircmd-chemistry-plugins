@@ -22,14 +22,14 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
+    pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration) -> Self {
         let cube_mesh = mesh_objects::cube::create(2.0);
         Self {
-            renderer: Renderer::new(device, config),
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
+            transform: Transform::new(),
+            renderer: Renderer::new(device, surface_config),
             camera: Camera::new(),
             molecule: None,
-            transform: Transform::new(),
             cube_vb: VertexBuffer::new(device, &cube_mesh),
             cube_mesh,
             picking_texture_dirty: true,
@@ -83,7 +83,6 @@ impl Scene {
         let scene_matrix = *self.transform.get_matrix() * molecule.transform;
         let final_matrix = projection_matrix * view_matrix * scene_matrix;
         let is_perspective = self.projection_manager.mode == ProjectionMode::Perspective;
-        let lighting_model = 1u32;
 
         // Update uniform buffer with all 4 matrices + projection type flag
         // matrix = (16 float × 4 байта) = 64 bytes
@@ -94,7 +93,6 @@ impl Scene {
         uniforms_data[192..256].copy_from_slice(bytemuck::cast_slice(&final_matrix.data));
         uniforms_data[256..260].copy_from_slice(&render_mode.to_le_bytes());
         uniforms_data[260..264].copy_from_slice(&(if is_perspective { 1u32 } else { 0u32 }).to_le_bytes());
-        uniforms_data[264..268].copy_from_slice(&lighting_model.to_le_bytes());
 
         queue.write_buffer(&self.renderer.uniform_buffer, 0, &uniforms_data);
 
@@ -113,32 +111,23 @@ impl Scene {
             label: Some("Render Encoder"),
         });
 
-        // Begin render pass
+        let has_transparent_objects = molecule.bounding_spheres_instance_count() > 0;
+
+        // Pass 1: Render opaque objects
         {
-            let bg_color = if render_mode == 1 {
-                wgpu::Color {
-                    // picking
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                }
-            } else {
-                wgpu::Color {
-                    r: config.style.background_color.r as f64,
-                    g: config.style.background_color.g as f64,
-                    b: config.style.background_color.b as f64,
-                    a: 1.0,
-                }
-            };
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
+                label: Some("Opaque Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(bg_color),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: config.style.background_color.r as f64,
+                            g: config.style.background_color.g as f64,
+                            b: config.style.background_color.b as f64,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -160,14 +149,104 @@ impl Scene {
             render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
 
-            // Render atoms
-            render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
-            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
+            // Render atoms (opaque)
+            if molecule.atoms_instance_count() > 0 {
+                render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.atoms_instance_count() as u32,
+                );
+            }
 
-            // Render bonds
-            if render_mode == 0 && molecule.bonds_instance_count() > 0 {
+            // Render bonds (opaque)
+            if molecule.bonds_instance_count() > 0 {
                 render_pass.set_vertex_buffer(1, molecule.bonds_instance_buffer.slice(..));
-                render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.bonds_instance_count());
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.bonds_instance_count() as u32,
+                );
+            }
+        }
+
+        // Pass 2 & 3: WBOIT for transparent objects
+        if has_transparent_objects {
+            // Pass 2: Render transparent objects to WBOIT buffers
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("WBOIT Transparent Pass"),
+                    color_attachments: &[
+                        // Accumulation texture
+                        Some(wgpu::RenderPassColorAttachment {
+                            view: &self.renderer.wboit_accumulation_texture_view,
+                            depth_slice: None,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        }),
+                        // Revealage texture
+                        Some(wgpu::RenderPassColorAttachment {
+                            view: &self.renderer.wboit_revealage_texture_view,
+                            depth_slice: None,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        }),
+                    ],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.renderer.depth_texture_view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Load, // Keep depth from opaque pass
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    }),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+
+                render_pass.set_pipeline(&self.renderer.transparent_pipeline);
+                render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
+
+                // Render bounding spheres (transparent)
+                render_pass.set_vertex_buffer(1, molecule.atom_selections_instance_buffer.slice(..));
+                render_pass.draw_indexed(
+                    0..self.cube_mesh.num_indices,
+                    0,
+                    0..molecule.bounding_spheres_instance_count() as u32,
+                );
+            }
+
+            // Pass 3: Composite WBOIT result onto framebuffer
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("WBOIT Composite Pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load, // Keep opaque rendering
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+
+                render_pass.set_pipeline(&self.renderer.composite_pipeline);
+                render_pass.set_bind_group(0, &self.renderer.wboit_bind_group, &[]);
+                render_pass.draw(0..6, 0..1); // Full-screen quad
             }
         }
 
@@ -239,7 +318,11 @@ impl Scene {
 
             // Render atoms only (bonds don't have picking IDs)
             render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
-            render_pass.draw_indexed(0..self.cube_mesh.num_indices, 0, 0..molecule.atoms_instance_count());
+            render_pass.draw_indexed(
+                0..self.cube_mesh.num_indices,
+                0,
+                0..molecule.atoms_instance_count() as u32,
+            );
         }
 
         queue.submit(std::iter::once(encoder.finish()));
@@ -330,5 +413,20 @@ impl Scene {
 
         let molecule = self.molecule.as_mut().unwrap();
         molecule.highlight_atom(atom_index, device)
+    }
+
+    pub async fn toggle_atom_selection(&mut self, x: u32, y: u32, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        if self.molecule.is_none() {
+            return false;
+        }
+
+        if self.picking_texture_dirty {
+            self.render_picking_pass(device, queue);
+        }
+
+        let atom_index = self.read_picking_pixel(x, y, device, queue).await;
+
+        let molecule = self.molecule.as_mut().unwrap();
+        molecule.toggle_atom_selection(atom_index, device)
     }
 }

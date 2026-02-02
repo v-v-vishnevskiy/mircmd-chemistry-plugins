@@ -5,7 +5,6 @@ struct Uniforms {
     final_transform: mat4x4<f32>, // projection_transform * view_transform * scene_transform
     render_mode: u32,             // 0 = normal, 1 = picking
     is_perspective: u32,          // 0 = orthographic, 1 = perspective
-    lighting_model: u32,          // 0 = flat color, 1 = Blinn Phong
 };
 
 @group(0) @binding(0)
@@ -23,18 +22,20 @@ struct InstanceInput {
     @location(5) model_matrix_3: vec4<f32>,
     @location(6) color: vec4<f32>,
     @location(7) picking_color: vec4<f32>,
-    @location(8) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
+    @location(8) lighting_model: u32,   // 0 = flat color, 1 = Blinn Phong
+    @location(9) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
 };
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: vec3<f32>,
     @location(1) color: vec4<f32>,
-    @location(2) @interpolate(flat) ray_casting_type: u32,
-    @location(3) ray_casting_scale: vec3<f32>,
-    @location(4) sphere_center_view: vec3<f32>,
-    @location(5) vertex_pos_view: vec3<f32>,
-    @location(6) cylinder_axis_view: vec3<f32>,
+    @location(2) @interpolate(flat) lighting_model: u32,
+    @location(3) @interpolate(flat) ray_casting_type: u32,
+    @location(4) ray_casting_scale: vec3<f32>,
+    @location(5) sphere_center_view: vec3<f32>,
+    @location(6) vertex_pos_view: vec3<f32>,
+    @location(7) cylinder_axis_view: vec3<f32>,
 };
 
 struct RayCastingOutput {
@@ -45,6 +46,24 @@ struct RayCastingOutput {
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
     @builtin(frag_depth) depth: f32,
+}
+
+// WBOIT (Weighted Blended Order-Independent Transparency) output
+struct WboitFragmentOutput {
+    @location(0) accumulation: vec4<f32>,  // RGB * A * weight, A * weight
+    @location(1) revealage: f32,           // Product of (1 - alpha)
+}
+
+// WBOIT weight function based on McGuire and Bavoil paper
+fn wboit_weight(color: vec4<f32>, depth: f32) -> f32 {
+    // Attempt to prevent floating-point overflow and underflow
+    let a = min(1.0, color.a) * 8.0 + 0.01;
+    let b = -depth * 0.95 + 1.0;
+
+    // Weight based on alpha and depth
+    // Objects closer to camera (smaller depth) get higher weight
+    let weight = clamp(a * a * a * 1e8 * b * b * b, 1e-2, 3e2);
+    return weight;
 }
 
 fn get_scale(matrix: mat4x4<f32>) -> vec3<f32> {
@@ -182,7 +201,8 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
             output.color = instance.color;
         }
     }
-    
+
+    output.lighting_model = instance.lighting_model;
     output.ray_casting_type = instance.ray_casting_type;
     return output;
 }
@@ -362,6 +382,39 @@ fn ray_casting(in: VertexOutput) -> RayCastingOutput {
     return result;
 }
 
+fn calculate_fragment_color(in: VertexOutput, normal: vec3<f32>) -> vec4<f32> {
+    switch uniforms.render_mode {
+        case 1u { // picking mode
+            return in.color;
+        }
+        default {
+            switch in.lighting_model {
+                case 1u {
+                    let ambient_strength: f32 = 0.3;
+                    let specular_strength: f32 = 0.6;
+                    let shininess: f32 = 16.0;
+                    let light_color = vec3<f32>(1.0, 1.0, 1.0) * 0.9;
+                    let light_position = vec3<f32>(0.3, 0.3, 1.0);
+
+                    return calculate_blinn_phong(
+                        in.color, 
+                        normal,
+                        light_color, 
+                        light_position, 
+                        ambient_strength, 
+                        specular_strength, 
+                        shininess
+                    );
+                }
+                default {
+                    return in.color;
+                }
+            }
+        }
+    }
+    return in.color;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     var output: FragmentOutput;
@@ -381,35 +434,41 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
         }
     }
 
-    switch uniforms.render_mode {
-        case 1u { // picking mode
-            output.color = in.color;
+    output.color = calculate_fragment_color(in, normal);
+    return output;
+}
+
+// Fragment shader for transparent objects (WBOIT)
+@fragment
+fn fs_transparent(in: VertexOutput) -> WboitFragmentOutput {
+    var output: WboitFragmentOutput;
+    var normal: vec3<f32>;
+    var depth: f32;
+
+    switch in.ray_casting_type {
+        case 1u, 2u {
+            let rc_out = ray_casting(in);
+            normal = rc_out.normal;
+
+            let clip_space_pos: vec4<f32> = uniforms.projection_transform * vec4<f32>(rc_out.intersection_point, 1.0);
+            depth = clip_space_pos.z / clip_space_pos.w;
         }
         default {
-            switch uniforms.lighting_model {
-                case 1u {
-                    let ambient_strength: f32 = 0.3;
-                    let specular_strength: f32 = 0.6;
-                    let shininess: f32 = 16.0;
-                    let light_color = vec3<f32>(1.0, 1.0, 1.0) * 0.9;
-                    let light_position = vec3<f32>(0.3, 0.3, 1.0);
-
-                    output.color = calculate_blinn_phong(
-                        in.color, 
-                        normal,
-                        light_color, 
-                        light_position, 
-                        ambient_strength, 
-                        specular_strength, 
-                        shininess
-                    );
-                }
-                default {
-                    output.color = in.color;
-                }
-            }
+            normal = in.normal;
+            depth = in.position.z;
         }
     }
+
+    let color = calculate_fragment_color(in, normal);
+
+    // Calculate WBOIT weight
+    let weight = wboit_weight(color, depth);
+
+    // Output to accumulation buffer: premultiplied color * weight, alpha * weight
+    output.accumulation = vec4<f32>(color.rgb * color.a, color.a) * weight;
+
+    // Output to revealage buffer: (1 - alpha) for multiplicative blending
+    output.revealage = color.a;
 
     return output;
 }

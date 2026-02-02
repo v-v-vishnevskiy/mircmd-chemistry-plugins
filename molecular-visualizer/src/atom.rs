@@ -98,6 +98,7 @@ impl Atom {
             model_matrix: get_model_matrix(&transform),
             color: color,
             picking_color: self.picking_color,
+            lighting_model: if bounding_sphere { 0 } else { 1 },
             ray_casting_type: 1,
         }
     }

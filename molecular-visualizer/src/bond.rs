@@ -36,6 +36,7 @@ impl Bond {
             model_matrix: get_model_matrix(&transform),
             color: self.color,
             picking_color: Color::new(0.0, 0.0, 0.0, 1.0),
+            lighting_model: 1,
             ray_casting_type: 2,
         }
     }

@@ -2,7 +2,7 @@ use shared_lib::types::AtomicCoordinates;
 
 use super::atom::AtomInfo;
 use super::config::Config;
-use super::core::{Camera, Mesh, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
+use super::core::{Camera, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
 use super::utils::color_to_id;
@@ -15,7 +15,6 @@ pub struct Scene {
 
     camera: Camera,
     molecule: Option<Molecule>,
-    cube_mesh: Mesh,
     cube_vb: VertexBuffer,
 
     picking_texture_dirty: bool,
@@ -31,7 +30,6 @@ impl Scene {
             camera: Camera::new(),
             molecule: None,
             cube_vb: VertexBuffer::new(device, &cube_mesh),
-            cube_mesh,
             picking_texture_dirty: true,
         }
     }
@@ -153,7 +151,7 @@ impl Scene {
             if molecule.atoms_instance_count() > 0 {
                 render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
                 render_pass.draw_indexed(
-                    0..self.cube_mesh.num_indices,
+                    0..self.cube_vb.num_indices,
                     0,
                     0..molecule.atoms_instance_count() as u32,
                 );
@@ -163,7 +161,7 @@ impl Scene {
             if molecule.bonds_instance_count() > 0 {
                 render_pass.set_vertex_buffer(1, molecule.bonds_instance_buffer.slice(..));
                 render_pass.draw_indexed(
-                    0..self.cube_mesh.num_indices,
+                    0..self.cube_vb.num_indices,
                     0,
                     0..molecule.bonds_instance_count() as u32,
                 );
@@ -219,7 +217,7 @@ impl Scene {
                 // Render bounding spheres (transparent)
                 render_pass.set_vertex_buffer(1, molecule.atom_selections_instance_buffer.slice(..));
                 render_pass.draw_indexed(
-                    0..self.cube_mesh.num_indices,
+                    0..self.cube_vb.num_indices,
                     0,
                     0..molecule.bounding_spheres_instance_count() as u32,
                 );
@@ -319,7 +317,7 @@ impl Scene {
             // Render atoms only (bonds don't have picking IDs)
             render_pass.set_vertex_buffer(1, molecule.atoms_instance_buffer.slice(..));
             render_pass.draw_indexed(
-                0..self.cube_mesh.num_indices,
+                0..self.cube_vb.num_indices,
                 0,
                 0..molecule.atoms_instance_count() as u32,
             );
@@ -372,7 +370,7 @@ impl Scene {
             let _ = sender.send(result);
         });
 
-        device.poll(wgpu::PollType::Wait {
+        let _ = device.poll(wgpu::PollType::Wait {
             submission_index: None,
             timeout: None,
         });

@@ -30,4 +30,4 @@ clean:
 
 .PHONY: font-atlas
 font-atlas:
-	cargo run --bin debug_font_atlas --features debug-tools
+	cargo run --bin debug_font_atlas --features debug-tools --release

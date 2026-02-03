@@ -14,7 +14,7 @@ fn main() {
 
     println!("Creating font atlas...");
 
-    let atlas = FontAtlas::from_embedded_font(4096, 6000.0, 3);
+    let atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
 
     println!("\nCharacter info:");
     let chars_info = atlas.chars.clone();

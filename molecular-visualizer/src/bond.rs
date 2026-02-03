@@ -39,7 +39,6 @@ impl Bond {
             lighting_model: 1,
             ray_casting_type: 2,
             use_texture: 0,
-            _padding: 0,
         }
     }
 }

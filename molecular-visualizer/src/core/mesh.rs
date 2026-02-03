@@ -44,7 +44,6 @@ pub struct InstanceData {
     pub lighting_model: u32,
     pub ray_casting_type: u32,
     pub use_texture: u32,
-    pub _padding: u32,
 }
 
 impl InstanceData {

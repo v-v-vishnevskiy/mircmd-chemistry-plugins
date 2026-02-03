@@ -22,7 +22,6 @@ install:
 
 .PHONY: clean
 clean:
-	rm -rf dist
 	rm -rf pkg
 	rm -rf target
 	rm -rf web/node_modules

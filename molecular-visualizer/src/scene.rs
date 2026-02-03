@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use shared_lib::types::AtomicCoordinates;
 
 use super::atom::AtomInfo;
 use super::config::Config;
-use super::core::{Camera, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
+use super::core::{Camera, CharInfo, FontAtlas, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
 use super::utils::color_to_id;
@@ -16,22 +18,46 @@ pub struct Scene {
     camera: Camera,
     molecule: Option<Molecule>,
     cube_vb: VertexBuffer,
+    font_atlas_vb: HashMap<char, VertexBuffer>,
+    font_atlas_default_symbol_vb: VertexBuffer,
 
     picking_texture_dirty: bool,
 }
 
 impl Scene {
-    pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, surface_config: &wgpu::SurfaceConfiguration) -> Self {
         let cube_mesh = mesh_objects::cube::create(2.0);
+
+        let mut font_atlas_vb = HashMap::new();
+
+        let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
+        for (symbol, info) in font_atlas.chars.iter() {
+            font_atlas_vb.insert(*symbol, Self::create_font_atlas_symbol_vb(device, info));
+        }
+
+        let font_atlas_default_symbol_vb = Self::create_font_atlas_symbol_vb(device, &font_atlas.default_char_info);
+
         Self {
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
             transform: Transform::new(),
-            renderer: Renderer::new(device, surface_config),
+            renderer: Renderer::new(device, queue, surface_config, &font_atlas),
             camera: Camera::new(),
             molecule: None,
             cube_vb: VertexBuffer::new(device, &cube_mesh),
+            font_atlas_vb,
+            font_atlas_default_symbol_vb,
             picking_texture_dirty: true,
         }
+    }
+
+    fn create_font_atlas_symbol_vb(device: &wgpu::Device, info: &CharInfo) -> VertexBuffer {
+        let width = info.width / info.height;
+        let mut rect = mesh_objects::rect::create(-width, width, -1.0, 1.0);
+        rect.vertices[0].tex_coord = [info.u_min, info.v_min];
+        rect.vertices[1].tex_coord = [info.u_max, info.v_min];
+        rect.vertices[2].tex_coord = [info.u_max, info.v_max];
+        rect.vertices[3].tex_coord = [info.u_min, info.v_max];
+        VertexBuffer::new(device, &rect)
     }
 
     fn setup_camera(&mut self, scene_size: f32) {
@@ -109,8 +135,6 @@ impl Scene {
             label: Some("Render Encoder"),
         });
 
-        let has_transparent_objects = molecule.bounding_spheres_instance_count() > 0;
-
         // Pass 1: Render opaque objects
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -168,53 +192,52 @@ impl Scene {
             }
         }
 
-        // Pass 2 & 3: WBOIT for transparent objects
-        if has_transparent_objects {
-            // Pass 2: Render transparent objects to WBOIT buffers
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("WBOIT Transparent Pass"),
-                    color_attachments: &[
-                        // Accumulation texture
-                        Some(wgpu::RenderPassColorAttachment {
-                            view: &self.renderer.wboit_accumulation_texture_view,
-                            depth_slice: None,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        }),
-                        // Revealage texture
-                        Some(wgpu::RenderPassColorAttachment {
-                            view: &self.renderer.wboit_revealage_texture_view,
-                            depth_slice: None,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        }),
-                    ],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &self.renderer.depth_texture_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Load, // Keep depth from opaque pass
+        // Pass 2: Render transparent objects to WBOIT buffers
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("WBOIT Transparent Pass"),
+                color_attachments: &[
+                    // Accumulation texture
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &self.renderer.wboit_accumulation_texture_view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                             store: wgpu::StoreOp::Store,
-                        }),
-                        stencil_ops: None,
+                        },
                     }),
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: None,
-                });
+                    // Revealage texture
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &self.renderer.wboit_revealage_texture_view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    }),
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.renderer.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load, // Keep depth from opaque pass
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
 
-                render_pass.set_pipeline(&self.renderer.transparent_pipeline);
+            render_pass.set_pipeline(&self.renderer.transparent_pipeline);
+            render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
+
+            // Render bounding spheres (transparent)
+            if molecule.bounding_spheres_instance_count() > 0 {
                 render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.set_bind_group(0, &self.renderer.bind_group, &[]);
-
-                // Render bounding spheres (transparent)
                 render_pass.set_vertex_buffer(1, molecule.atom_selections_instance_buffer.slice(..));
                 render_pass.draw_indexed(
                     0..self.cube_vb.num_indices,
@@ -222,30 +245,30 @@ impl Scene {
                     0..molecule.bounding_spheres_instance_count() as u32,
                 );
             }
+        }
 
-            // Pass 3: Composite WBOIT result onto framebuffer
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("WBOIT Composite Pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Load, // Keep opaque rendering
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: None,
-                });
+        // Pass 3: Composite WBOIT result onto framebuffer
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("WBOIT Composite Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load, // Keep opaque rendering
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
 
-                render_pass.set_pipeline(&self.renderer.composite_pipeline);
-                render_pass.set_bind_group(0, &self.renderer.wboit_bind_group, &[]);
-                render_pass.draw(0..6, 0..1); // Full-screen quad
-            }
+            render_pass.set_pipeline(&self.renderer.composite_pipeline);
+            render_pass.set_bind_group(0, &self.renderer.wboit_bind_group, &[]);
+            render_pass.draw(0..6, 0..1); // Full-screen quad
         }
 
         // Submit commands

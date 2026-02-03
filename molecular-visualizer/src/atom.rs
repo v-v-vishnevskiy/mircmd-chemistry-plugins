@@ -100,6 +100,8 @@ impl Atom {
             picking_color: self.picking_color,
             lighting_model: if bounding_sphere { 0 } else { 1 },
             ray_casting_type: 1,
+            use_texture: 0,
+            _padding: 0,
         }
     }
 }

@@ -6,6 +6,7 @@ use bytemuck::{Pod, Zeroable};
 pub struct Vertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],
+    pub tex_coord: [f32; 2],
 }
 
 impl Vertex {
@@ -24,6 +25,11 @@ impl Vertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                wgpu::VertexAttribute {
+                    offset: (std::mem::size_of::<[f32; 3]>() * 2) as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
             ],
         }
     }
@@ -37,6 +43,8 @@ pub struct InstanceData {
     pub picking_color: Color,
     pub lighting_model: u32,
     pub ray_casting_type: u32,
+    pub use_texture: u32,
+    pub _padding: u32,
 }
 
 impl InstanceData {
@@ -48,49 +56,56 @@ impl InstanceData {
                 // Model matrix row 0
                 wgpu::VertexAttribute {
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Model matrix row 1
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 3,
+                    shader_location: 4,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Model matrix row 2
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 2) as wgpu::BufferAddress,
-                    shader_location: 4,
+                    shader_location: 5,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Model matrix row 3
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 3) as wgpu::BufferAddress,
-                    shader_location: 5,
+                    shader_location: 6,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Color
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 4) as wgpu::BufferAddress, // offset 64
-                    shader_location: 6,
+                    shader_location: 7,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Picking color
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 5) as wgpu::BufferAddress, // offset 80
-                    shader_location: 7,
+                    shader_location: 8,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 // Lighting model
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 6) as wgpu::BufferAddress, // offset 96
-                    shader_location: 8,
+                    shader_location: 9,
                     format: wgpu::VertexFormat::Uint32,
                 },
                 // Ray Casting Type
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 4]>() * 6 + std::mem::size_of::<u32>()) as wgpu::BufferAddress, // offset 100
-                    shader_location: 9,
+                    shader_location: 10,
+                    format: wgpu::VertexFormat::Uint32,
+                },
+                // Use Texture
+                wgpu::VertexAttribute {
+                    offset: (std::mem::size_of::<[f32; 4]>() * 6 + std::mem::size_of::<u32>() * 2)
+                        as wgpu::BufferAddress, // offset 104
+                    shader_location: 11,
                     format: wgpu::VertexFormat::Uint32,
                 },
             ],

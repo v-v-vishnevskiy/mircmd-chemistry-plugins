@@ -2,7 +2,7 @@ mod atom;
 mod bond;
 mod bonds;
 mod config;
-mod core;
+pub mod core;
 mod molecule;
 mod renderer;
 mod scene;

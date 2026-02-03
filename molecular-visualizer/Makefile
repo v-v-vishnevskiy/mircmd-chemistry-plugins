@@ -4,6 +4,7 @@ INSTALL_DIR=~/.config/mircmd/plugins/mircmd/chemistry-molecular-visualizer
 init:
 	cd web && npm install
 	cargo install wasm-pack
+	cargo install wasm-bindgen-cli --version 0.2.108
 	rustup target add wasm32-unknown-unknown
 
 .PHONY: build

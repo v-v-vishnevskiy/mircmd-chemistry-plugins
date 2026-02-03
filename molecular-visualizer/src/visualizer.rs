@@ -84,7 +84,7 @@ impl MolecularVisualizer {
 
         let visualizer_config = Config::new();
 
-        let mut scene = Scene::new(&device, &config);
+        let mut scene = Scene::new(&device, &queue, &config);
         scene.projection_manager.set_viewport(width, height);
 
         let node_data: AtomicCoordinates = serde_json::from_slice(&data)

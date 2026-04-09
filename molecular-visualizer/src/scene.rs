@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use shared_lib::types::AtomicCoordinates;
 
 use super::atom::AtomInfo;
 use super::config::Config;
-use super::core::{Camera, CharInfo, FontAtlas, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
+use super::core::{Camera, FontAtlas, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
 use super::utils::color_to_id;
@@ -18,8 +16,8 @@ pub struct Scene {
     camera: Camera,
     molecule: Option<Molecule>,
     cube_vb: VertexBuffer,
-    font_atlas_vb: HashMap<char, VertexBuffer>,
-    font_atlas_default_symbol_vb: VertexBuffer,
+    font_atlas: FontAtlas,
+    font_atlas_vb: VertexBuffer,
 
     picking_texture_dirty: bool,
 }
@@ -28,14 +26,8 @@ impl Scene {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, surface_config: &wgpu::SurfaceConfiguration) -> Self {
         let cube_mesh = mesh_objects::cube::create(2.0);
 
-        let mut font_atlas_vb = HashMap::new();
-
         let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
-        for (symbol, info) in font_atlas.chars.iter() {
-            font_atlas_vb.insert(*symbol, Self::create_font_atlas_symbol_vb(device, info));
-        }
-
-        let font_atlas_default_symbol_vb = Self::create_font_atlas_symbol_vb(device, &font_atlas.default_char_info);
+        let font_atlas_vb = Self::create_font_atlas_vb(device);
 
         Self {
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
@@ -44,19 +36,18 @@ impl Scene {
             camera: Camera::new(),
             molecule: None,
             cube_vb: VertexBuffer::new(device, &cube_mesh),
+            font_atlas,
             font_atlas_vb,
-            font_atlas_default_symbol_vb,
             picking_texture_dirty: true,
         }
     }
 
-    fn create_font_atlas_symbol_vb(device: &wgpu::Device, info: &CharInfo) -> VertexBuffer {
-        let width = info.width / info.height;
-        let mut rect = mesh_objects::rect::create(-width, width, -1.0, 1.0);
-        rect.vertices[0].tex_coord = [info.u_min, info.v_min];
-        rect.vertices[1].tex_coord = [info.u_max, info.v_min];
-        rect.vertices[2].tex_coord = [info.u_max, info.v_max];
-        rect.vertices[3].tex_coord = [info.u_min, info.v_max];
+    fn create_font_atlas_vb(device: &wgpu::Device) -> VertexBuffer {
+        let mut rect = mesh_objects::rect::create(-1.0, 1.0, -1.0, 1.0);
+        rect.vertices[0].tex_coord = [0.0, 0.0];
+        rect.vertices[1].tex_coord = [1.0, 0.0];
+        rect.vertices[2].tex_coord = [1.0, 1.0];
+        rect.vertices[3].tex_coord = [0.0, 1.0];
         VertexBuffer::new(device, &rect)
     }
 
@@ -79,7 +70,7 @@ impl Scene {
     }
 
     pub fn load_atomic_coordinates(&mut self, device: &wgpu::Device, config: &Config, data: &AtomicCoordinates) {
-        match Molecule::new(device, config, data) {
+        match Molecule::new(device, config, data, &self.font_atlas) {
             Ok(molecule) => {
                 self.setup_camera(molecule.radius);
                 self.molecule = Some(molecule);
@@ -243,6 +234,19 @@ impl Scene {
                     0..self.cube_vb.num_indices,
                     0,
                     0..molecule.bounding_spheres_instance_count() as u32,
+                );
+            }
+
+            // Render text labels (transparent)
+            render_pass.set_pipeline(&self.renderer.text_transparent_pipeline);
+            render_pass.set_vertex_buffer(0, self.font_atlas_vb.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.font_atlas_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            if molecule.atom_labels_instance_count > 0 {
+                render_pass.set_vertex_buffer(1, molecule.atom_labels_instance_buffer.slice(..));
+                render_pass.draw_indexed(
+                    0..self.font_atlas_vb.num_indices,
+                    0,
+                    0..molecule.atom_labels_instance_count as u32,
                 );
             }
         }
@@ -421,6 +425,7 @@ impl Scene {
         y: u32,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        config: &Config,
     ) -> (Option<AtomInfo>, bool) {
         if self.molecule.is_none() {
             return (None, false);
@@ -432,11 +437,12 @@ impl Scene {
 
         let atom_index = self.read_picking_pixel(x, y, device, queue).await;
 
+        let font_atlas = &self.font_atlas;
         let molecule = self.molecule.as_mut().unwrap();
-        molecule.highlight_atom(atom_index, device)
+        molecule.highlight_atom(atom_index, device, font_atlas, config)
     }
 
-    pub async fn toggle_atom_selection(&mut self, x: u32, y: u32, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+    pub async fn toggle_atom_selection(&mut self, x: u32, y: u32, device: &wgpu::Device, queue: &wgpu::Queue, config: &Config) -> bool {
         if self.molecule.is_none() {
             return false;
         }
@@ -447,7 +453,8 @@ impl Scene {
 
         let atom_index = self.read_picking_pixel(x, y, device, queue).await;
 
+        let font_atlas = &self.font_atlas;
         let molecule = self.molecule.as_mut().unwrap();
-        molecule.toggle_atom_selection(atom_index, device)
+        molecule.toggle_atom_selection(atom_index, device, font_atlas, config)
     }
 }

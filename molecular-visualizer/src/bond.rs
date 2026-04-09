@@ -1,4 +1,4 @@
-use super::core::mesh::InstanceData;
+use super::core::instance_data::InstanceData;
 use super::core::{Mat4, Quaternion, Vec3};
 use super::types::Color;
 use super::utils::get_model_matrix;
@@ -38,7 +38,6 @@ impl Bond {
             picking_color: Color::new(0.0, 0.0, 0.0, 1.0),
             lighting_model: 1,
             ray_casting_type: 2,
-            use_texture: 0,
         }
     }
 }

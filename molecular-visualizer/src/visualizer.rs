@@ -142,7 +142,7 @@ impl MolecularVisualizer {
 
     #[wasm_bindgen]
     pub async fn new_cursor_position(&mut self, x: u32, y: u32) -> Option<AtomInfo> {
-        let (atom, needs_render) = self.scene.new_cursor_position(x, y, &self.device, &self.queue).await;
+        let (atom, needs_render) = self.scene.new_cursor_position(x, y, &self.device, &self.queue, &self.visualizer_config).await;
 
         if needs_render {
             self.scene
@@ -154,7 +154,7 @@ impl MolecularVisualizer {
 
     #[wasm_bindgen]
     pub async fn toggle_atom_selection(&mut self, x: u32, y: u32) {
-        if self.scene.toggle_atom_selection(x, y, &self.device, &self.queue).await {
+        if self.scene.toggle_atom_selection(x, y, &self.device, &self.queue, &self.visualizer_config).await {
             self.scene
                 .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
         }

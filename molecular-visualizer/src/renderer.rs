@@ -1,4 +1,4 @@
-use super::core::{FontAtlas, InstanceData, Vertex};
+use super::core::{CharInstanceData, FontAtlas, InstanceData, Vertex};
 use wgpu::util::DeviceExt;
 
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
@@ -29,6 +29,8 @@ pub struct Renderer {
     pub wboit_revealage_texture_view: wgpu::TextureView,
     pub wboit_bind_group: wgpu::BindGroup,
 
+    pub text_transparent_pipeline: wgpu::RenderPipeline,
+
     pub font_atlas_texture: wgpu::Texture,
     pub font_atlas_texture_view: wgpu::TextureView,
     pub font_atlas_sampler: wgpu::Sampler,
@@ -48,6 +50,11 @@ impl Renderer {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Main Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/main.wgsl").into()),
+        });
+
+        let text_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Text Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/text.wgsl").into()),
         });
 
         let wboit_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -121,6 +128,7 @@ impl Renderer {
             PICKING_FORMAT,
         );
         let transparent_pipeline = Self::create_transparent_pipeline(device, &pipeline_layout, &shader);
+        let text_transparent_pipeline = Self::create_text_transparent_pipeline(device, &pipeline_layout, &text_shader);
 
         // Create WBOIT textures
         let (_, depth_texture_view) =
@@ -184,6 +192,7 @@ impl Renderer {
             pipeline,
             picking_pipeline,
             transparent_pipeline,
+            text_transparent_pipeline,
             composite_pipeline,
             uniform_buffer,
             bind_group,
@@ -350,6 +359,83 @@ impl Renderer {
                 module: shader,
                 entry_point: Some("vs_main"),
                 buffers: &[Vertex::desc(), InstanceData::desc()],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: shader,
+                entry_point: Some("fs_transparent"),
+                targets: &[
+                    // Accumulation target: additive blending (ONE, ONE)
+                    Some(wgpu::ColorTargetState {
+                        format: WBOIT_ACCUMULATION_FORMAT,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::One,
+                                dst_factor: wgpu::BlendFactor::One,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                            alpha: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::One,
+                                dst_factor: wgpu::BlendFactor::One,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    }),
+                    // Revealage target: multiplicative blending (ZERO, ONE_MINUS_SRC)
+                    Some(wgpu::ColorTargetState {
+                        format: WBOIT_REVEALAGE_FORMAT,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::Zero,
+                                dst_factor: wgpu::BlendFactor::OneMinusSrc,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                            alpha: wgpu::BlendComponent::OVER,
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    }),
+                ],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None, // No culling for transparent objects
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: false,                 // Don't write to depth buffer
+                depth_compare: wgpu::CompareFunction::Less, // But still test against it
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview_mask: None,
+            cache: None,
+        })
+    }
+
+    fn create_text_transparent_pipeline(
+        device: &wgpu::Device,
+        pipeline_layout: &wgpu::PipelineLayout,
+        shader: &wgpu::ShaderModule,
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Text Transparent Pipeline"),
+            layout: Some(pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc(), CharInstanceData::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {

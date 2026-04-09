@@ -22,12 +22,21 @@ pub struct Bond {
     pub color: Color,
 }
 
+pub struct AtomLabel {
+    pub color: Color,
+    pub size: f32,
+    pub offset: f32,
+    pub symbol_visible: bool,
+    pub number_visible: bool,
+}
+
 pub struct Style {
     pub background_color: Color,
     pub atoms: HashMap<i32, Atom>,
     pub selected_atom: SelectedAtom,
     pub bond: Bond,
     pub geom_bond_tolerance: f64,
+    pub atom_label: AtomLabel,
 }
 
 impl Style {
@@ -878,13 +887,23 @@ impl Style {
         Self {
             background_color: Color::new(0.133, 0.133, 0.133, 1.0),
             atoms,
-            selected_atom: SelectedAtom {color: Color::new(0.58, 1.0, 1.0, 0.3), scale_factor: 1.4},
+            selected_atom: SelectedAtom {
+                color: Color::new(0.58, 1.0, 1.0, 0.3),
+                scale_factor: 1.4,
+            },
             bond: Bond {
                 thickness: 0.1,
                 color_mode: BondColorMode::AtomColor,
                 color: Color::new(0.5, 0.5, 0.5, 1.0),
             },
             geom_bond_tolerance: 0.15,
+            atom_label: AtomLabel {
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                size: 10.0,
+                offset: 0.4,
+                symbol_visible: true,
+                number_visible: true,
+            },
         }
     }
 }

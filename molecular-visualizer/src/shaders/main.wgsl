@@ -19,7 +19,6 @@ var font_sampler: sampler;
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
-    @location(2) tex_coord: vec2<f32>,
 };
 
 struct InstanceInput {
@@ -31,7 +30,6 @@ struct InstanceInput {
     @location(8) picking_color: vec4<f32>,
     @location(9) lighting_model: u32,    // 0 = flat color, 1 = Blinn Phong
     @location(10) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
-    @location(11) use_texture: u32,      // 0 = no texture, 1 = sample from font atlas
 };
 
 struct VertexOutput {
@@ -44,8 +42,6 @@ struct VertexOutput {
     @location(5) sphere_center_view: vec3<f32>,
     @location(6) vertex_pos_view: vec3<f32>,
     @location(7) cylinder_axis_view: vec3<f32>,
-    @location(8) tex_coord: vec2<f32>,
-    @location(9) @interpolate(flat) use_texture: u32,
 };
 
 struct RayCastingOutput {
@@ -144,7 +140,6 @@ fn ray_casting_position(vertex: VertexInput, instance: InstanceInput) -> VertexO
 
     var output: VertexOutput;
     output.position = uniforms.final_transform * model_transform * vec4<f32>(vertex.position, 1.0);
-    output.tex_coord = vertex.tex_coord;
 
     // Extract scale components from model and scene matrices
     let model_scale = get_scale(model_transform);
@@ -185,7 +180,6 @@ fn default_position(vertex: VertexInput, instance: InstanceInput) -> VertexOutpu
     var output: VertexOutput;
     output.position = uniforms.final_transform * model_transform * vec4<f32>(vertex.position, 1.0);
     output.normal = (uniforms.scene_transform * model_transform * vec4<f32>(vertex.normal, 0.0)).xyz;
-    output.tex_coord = vertex.tex_coord;
     output.ray_casting_scale = vec3<f32>(0.0, 0.0, 0.0);
     output.sphere_center_view = vec3<f32>(0.0, 0.0, 0.0);
     output.vertex_pos_view = vec3<f32>(0.0, 0.0, 0.0);
@@ -216,7 +210,6 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
 
     output.lighting_model = instance.lighting_model;
     output.ray_casting_type = instance.ray_casting_type;
-    output.use_texture = instance.use_texture;
     return output;
 }
 
@@ -425,16 +418,6 @@ fn calculate_fragment_color(in: VertexOutput, normal: vec3<f32>) -> vec4<f32> {
                 }
             }
         }
-    }
-    
-    // Apply font atlas texture if use_texture is set
-    if (in.use_texture == 1u) {
-        let uv = vec2<f32>(in.tex_coord.x, 1.0 - in.tex_coord.y);
-        let texture_alpha = textureSample(font_atlas, font_sampler, uv).r;
-        if (texture_alpha < 0.01) {
-            discard;
-        }
-        color = vec4<f32>(color.rgb, color.a * texture_alpha);
     }
 
     return color;

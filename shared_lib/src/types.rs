@@ -32,7 +32,7 @@ pub struct VolumeCube {
     pub comment1: String,
     pub comment2: String,
     pub box_origin: Vec<f64>,
-    pub steps_number: Vec<i32>,
+    pub steps_number: (usize, usize, usize),
     pub steps_size: Vec<Vec<f64>>,
     pub cube_data: Vec<Vec<Vec<f64>>>,
 }

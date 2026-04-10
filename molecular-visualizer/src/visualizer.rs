@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shared_lib::types::AtomicCoordinates;
+use shared_lib::types::{AtomicCoordinates, VolumeCube};
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
@@ -8,6 +8,7 @@ use super::atom::AtomInfo;
 use super::config::Config;
 use super::core::Vec3;
 use super::scene::Scene;
+use super::types::Color;
 
 #[wasm_bindgen]
 pub struct MolecularVisualizer {
@@ -17,14 +18,17 @@ pub struct MolecularVisualizer {
     config: wgpu::SurfaceConfiguration,
     scene: Scene,
     visualizer_config: Config,
-    node_data: AtomicCoordinates,
 }
 
 #[wasm_bindgen]
 impl MolecularVisualizer {
     /// Creates a new MolecularVisualizer instance.
     /// Use as: `const visualizer = await MolecularVisualizer.create(canvas);`
-    pub async fn create(canvas: HtmlCanvasElement, data: Vec<u8>) -> Result<MolecularVisualizer, JsValue> {
+    pub async fn create(
+        canvas: HtmlCanvasElement,
+        node_type: String,
+        data: Vec<u8>,
+    ) -> Result<MolecularVisualizer, JsValue> {
         let width = canvas.width();
         let height = canvas.height();
 
@@ -87,10 +91,41 @@ impl MolecularVisualizer {
         let mut scene = Scene::new(&device, &queue, &config);
         scene.projection_manager.set_viewport(width, height);
 
-        let node_data: AtomicCoordinates = serde_json::from_slice(&data)
-            .map_err(|e| JsValue::from_str(&format!("Failed to deserialize data: {e}")))?;
-
-        scene.load_atomic_coordinates(&device, &visualizer_config, &node_data);
+        if node_type == "mircmd:chemistry:atomic_coordinates" {
+            match serde_json::from_slice::<AtomicCoordinates>(&data) {
+                Ok(data) => {
+                    scene.load_atomic_coordinates(&device, &visualizer_config, data);
+                }
+                Err(e) => {
+                    return Err(JsValue::from_str(&format!(
+                        "Failed to deserialize atomic coordinates data: {e}"
+                    )));
+                }
+            }
+        } else if node_type == "mircmd:chemistry:volume_cube" {
+            match serde_json::from_slice::<VolumeCube>(&data) {
+                Ok(data) => {
+                    scene.load_volume_cube(data);
+                    scene.volume_cube.as_mut().unwrap().add_isosurface(
+                        &device,
+                        Color::new(1.0, 0.0, 0.0, 0.5),
+                        0.05,
+                        1.0,
+                    );
+                    scene.volume_cube.as_mut().unwrap().add_isosurface(
+                        &device,
+                        Color::new(0.0, 1.0, 0.0, 1.0),
+                        0.15,
+                        1.0,
+                    );
+                }
+                Err(e) => {
+                    return Err(JsValue::from_str(&format!(
+                        "Failed to deserialize volume cube data: {e}"
+                    )));
+                }
+            }
+        }
 
         let device = Arc::into_inner(device).unwrap();
 
@@ -101,7 +136,6 @@ impl MolecularVisualizer {
             config,
             scene,
             visualizer_config,
-            node_data,
         })
     }
 
@@ -142,7 +176,10 @@ impl MolecularVisualizer {
 
     #[wasm_bindgen]
     pub async fn new_cursor_position(&mut self, x: u32, y: u32) -> Option<AtomInfo> {
-        let (atom, needs_render) = self.scene.new_cursor_position(x, y, &self.device, &self.queue, &self.visualizer_config).await;
+        let (atom, needs_render) = self
+            .scene
+            .new_cursor_position(x, y, &self.device, &self.queue, &self.visualizer_config)
+            .await;
 
         if needs_render {
             self.scene
@@ -154,7 +191,11 @@ impl MolecularVisualizer {
 
     #[wasm_bindgen]
     pub async fn toggle_atom_selection(&mut self, x: u32, y: u32) {
-        if self.scene.toggle_atom_selection(x, y, &self.device, &self.queue, &self.visualizer_config).await {
+        if self
+            .scene
+            .toggle_atom_selection(x, y, &self.device, &self.queue, &self.visualizer_config)
+            .await
+        {
             self.scene
                 .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
         }

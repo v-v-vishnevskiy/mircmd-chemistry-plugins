@@ -10,11 +10,16 @@ use super::bonds;
 use super::config::Config;
 use super::core::char_instance_data::CharInstanceData;
 use super::core::instance_data::InstanceData;
-use super::core::{Mat4, Vec3};
+use super::core::{Mat4, Vec3, mesh_objects};
 use super::types::Color;
 use super::utils::id_to_color;
+use super::vertex_buffer::VertexBuffer;
 
 pub struct Molecule {
+    data: AtomicCoordinates,
+
+    cube_vb: VertexBuffer,
+
     atoms: Vec<Atom>,
     bonds: Vec<Bond>,
 
@@ -34,7 +39,7 @@ impl Molecule {
     pub fn new(
         device: &wgpu::Device,
         config: &Config,
-        atomic_coordinates: &AtomicCoordinates,
+        atomic_coordinates: AtomicCoordinates,
         font_atlas: &super::core::FontAtlas,
     ) -> Result<Self, String> {
         let mut radius: f32 = 0.0;
@@ -85,7 +90,7 @@ impl Molecule {
 
         let bond_thickness = config.style.bond.thickness;
         let mut bonds = Vec::new();
-        let bonds_list = bonds::build(atomic_coordinates, config.style.geom_bond_tolerance);
+        let bonds_list = bonds::build(&atomic_coordinates, config.style.geom_bond_tolerance);
         for bond in bonds_list {
             let atom_1 = &atoms[bond.atom_index_1];
             let atom_2 = &atoms[bond.atom_index_2];
@@ -112,6 +117,8 @@ impl Molecule {
         ) = Self::create_atoms_instance_buffers(&atoms, device, font_atlas, config);
 
         Ok(Self {
+            data: atomic_coordinates,
+            cube_vb: VertexBuffer::new(device, &mesh_objects::cube::create(2.0)),
             atoms_instance_buffer,
             atom_labels_instance_buffer,
             atom_labels_instance_count,
@@ -286,6 +293,62 @@ impl Molecule {
             self.atom_selections_instance_buffer,
         ) = Self::create_atoms_instance_buffers(&self.atoms, device, font_atlas, config);
         true
+    }
+
+    pub fn render_opaque(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+        // Render atoms (opaque)
+        if self.atoms_instance_count() > 0 {
+            render_pass.set_vertex_buffer(1, self.atoms_instance_buffer.slice(..));
+            render_pass.draw_indexed(0..self.cube_vb.num_indices, 0, 0..self.atoms_instance_count() as u32);
+        }
+
+        // Render bonds (opaque)
+        if self.bonds_instance_count() > 0 {
+            render_pass.set_vertex_buffer(1, self.bonds_instance_buffer.slice(..));
+            render_pass.draw_indexed(0..self.cube_vb.num_indices, 0, 0..self.bonds_instance_count() as u32);
+        }
+    }
+
+    pub fn render_transparent(&self, render_pass: &mut wgpu::RenderPass) {
+        // Render bounding spheres
+        if self.bounding_spheres_instance_count() > 0 {
+            render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_vertex_buffer(1, self.atom_selections_instance_buffer.slice(..));
+            render_pass.draw_indexed(
+                0..self.cube_vb.num_indices,
+                0,
+                0..self.bounding_spheres_instance_count() as u32,
+            );
+        }
+    }
+
+    pub fn render_labels(&self, render_pass: &mut wgpu::RenderPass, font_atlas_vb: &VertexBuffer) {
+        // Render text labels
+        if self.atom_labels_instance_count > 0 {
+            render_pass.set_vertex_buffer(1, self.atom_labels_instance_buffer.slice(..));
+            render_pass.draw_indexed(
+                0..font_atlas_vb.num_indices,
+                0,
+                0..self.atom_labels_instance_count as u32,
+            );
+        }
+    }
+
+    pub fn render_picking_frame(&self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_vertex_buffer(0, self.cube_vb.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.cube_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+        // Render atoms only (bonds don't have picking IDs)
+        render_pass.set_vertex_buffer(1, self.atoms_instance_buffer.slice(..));
+        render_pass.draw_indexed(
+            0..self.cube_vb.num_indices,
+            0,
+            0..self.atoms_instance_count() as u32,
+        );
     }
 }
 

@@ -29,7 +29,7 @@ function supportedTypes(): string[] {
     return ['mircmd:chemistry:atomic_coordinates'];
 }
 
-function run(ctx: ProgramPluginContext, data: Uint8Array): void {
+function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Array): void {
     const parsed = parse_coords(data);
     clear_root(ctx.root);
     if (!parsed.ok) {
@@ -313,7 +313,7 @@ function handle_edit_key(
 
 // Export instantiate function compatible with current plugin loader
 export function instantiate(): {
-    run: (ctx: ProgramPluginContext, data: Uint8Array) => void;
+    run: (ctx: ProgramPluginContext, node_type: string, data: Uint8Array) => void;
     supportedTypes: () => string[];
 } {
     return { run, supportedTypes };

@@ -36,6 +36,6 @@ impl Vertex {
 
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
     pub num_indices: u32,
 }

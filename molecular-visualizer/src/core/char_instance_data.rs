@@ -1,5 +1,6 @@
 use super::super::types::Color;
 use bytemuck::{Pod, Zeroable};
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -75,4 +76,12 @@ impl CharInstanceData {
             ],
         }
     }
+}
+
+pub fn create_char_instance_buffer(data: &Vec<CharInstanceData>, device: &wgpu::Device, label: &str) -> wgpu::Buffer {
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(label),
+        contents: bytemuck::cast_slice(&data),
+        usage: wgpu::BufferUsages::VERTEX,
+    })
 }

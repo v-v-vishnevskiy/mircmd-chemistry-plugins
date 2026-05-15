@@ -2,6 +2,7 @@ use shared_lib::types::{AtomicCoordinates, VolumeCube as VolumeCubeData};
 
 use super::atom::AtomInfo;
 use super::config::Config;
+use super::coordinate_axes::CoordinateAxes;
 use super::core::{Camera, FontAtlas, Mat4, ProjectionManager, ProjectionMode, Transform, Vec3, mesh_objects};
 use super::molecule::Molecule;
 use super::renderer::Renderer;
@@ -17,6 +18,7 @@ pub struct Scene {
     camera: Camera,
     molecule: Option<Molecule>,
     pub volume_cube: Option<VolumeCube>,
+    pub coordinate_axes: CoordinateAxes,
     font_atlas: FontAtlas,
     rect_vb: VertexBuffer, // for character rendering
 
@@ -28,6 +30,8 @@ impl Scene {
         let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
         let rect_vb = Self::create_font_atlas_vb(device);
 
+        let coordinate_axes = CoordinateAxes::new(device, Vec3::new(0.0, 0.0, 0.0), true, &font_atlas);
+
         Self {
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
             transform: Transform::new(),
@@ -35,6 +39,7 @@ impl Scene {
             camera: Camera::new(),
             molecule: None,
             volume_cube: None,
+            coordinate_axes,
             font_atlas,
             rect_vb,
             picking_texture_dirty: true,
@@ -165,7 +170,7 @@ impl Scene {
 
             match &self.molecule {
                 Some(obj) => {
-                    obj.render_opaque(&mut render_pass);
+                    obj.render_atoms_and_bonds(&mut render_pass);
                 }
                 None => {}
             };
@@ -176,6 +181,8 @@ impl Scene {
                 }
                 None => {}
             };
+
+            self.coordinate_axes.render_axes(&mut render_pass);
         }
 
         // Pass 2: Render transparent objects to WBOIT buffers
@@ -222,7 +229,7 @@ impl Scene {
             match &self.molecule {
                 Some(obj) => {
                     render_pass.set_pipeline(&self.renderer.transparent_pipeline);
-                    obj.render_transparent(&mut render_pass);
+                    obj.render_bounding_spheres(&mut render_pass);
 
                     // Render text
                     render_pass.set_pipeline(&self.renderer.text_transparent_pipeline);
@@ -241,6 +248,11 @@ impl Scene {
                 }
                 None => {}
             };
+
+            render_pass.set_pipeline(&self.renderer.text_transparent_pipeline);
+            render_pass.set_vertex_buffer(0, self.rect_vb.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.rect_vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            self.coordinate_axes.render_labels(&mut render_pass, &self.rect_vb);
         }
 
         // Pass 3: Composite WBOIT result onto framebuffer

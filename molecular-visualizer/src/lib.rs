@@ -2,6 +2,7 @@ mod atom;
 mod bond;
 mod bonds;
 mod config;
+mod coordinate_axes;
 pub mod core;
 mod isosurface;
 mod molecule;

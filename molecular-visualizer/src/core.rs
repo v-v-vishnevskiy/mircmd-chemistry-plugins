@@ -1,4 +1,8 @@
 pub mod camera;
+pub mod char_instance_data;
+pub mod font_atlas;
+pub mod instance_buffer;
+pub mod instance_data;
 pub mod math;
 pub mod mesh;
 pub mod mesh_objects;
@@ -6,9 +10,13 @@ pub mod projection;
 pub mod transform;
 
 pub use camera::Camera;
+pub use char_instance_data::CharInstanceData;
+pub use font_atlas::{CharInfo, FontAtlas};
+pub use instance_buffer::InstanceBuffer;
+pub use instance_data::InstanceData;
 pub use math::matrix::Mat4;
 pub use math::quaternion::Quaternion;
 pub use math::vector::Vec3;
-pub use mesh::Mesh;
+pub use mesh::{Mesh, Vertex};
 pub use projection::{ProjectionManager, ProjectionMode};
 pub use transform::Transform;

@@ -289,7 +289,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
         comment1: comment_1,
         comment2: comment_2,
         box_origin,
-        steps_number,
+        steps_number: (n1, n2, n3),
         steps_size,
         cube_data,
     };

@@ -1,4 +1,4 @@
-use super::core::mesh::InstanceData;
+use super::core::instance_data::InstanceData;
 use super::core::{Mat4, Quaternion, Vec3};
 use super::types::Color;
 use super::utils::get_model_matrix;

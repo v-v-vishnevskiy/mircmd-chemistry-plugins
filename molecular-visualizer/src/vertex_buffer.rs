@@ -4,6 +4,7 @@ use wgpu::util::DeviceExt;
 pub struct VertexBuffer {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
+    pub num_indices: u32,
 }
 
 impl VertexBuffer {
@@ -23,6 +24,7 @@ impl VertexBuffer {
         Self {
             vertex_buffer,
             index_buffer,
+            num_indices: mesh.num_indices,
         }
     }
 }

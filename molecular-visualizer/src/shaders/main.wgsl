@@ -10,20 +10,26 @@ struct Uniforms {
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 
+@group(0) @binding(1)
+var font_atlas: texture_2d<f32>;
+
+@group(0) @binding(2)
+var font_sampler: sampler;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
 };
 
 struct InstanceInput {
-    @location(2) model_matrix_0: vec4<f32>,
-    @location(3) model_matrix_1: vec4<f32>,
-    @location(4) model_matrix_2: vec4<f32>,
-    @location(5) model_matrix_3: vec4<f32>,
-    @location(6) color: vec4<f32>,
-    @location(7) picking_color: vec4<f32>,
-    @location(8) lighting_model: u32,   // 0 = flat color, 1 = Blinn Phong
-    @location(9) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
+    @location(3) model_matrix_0: vec4<f32>,
+    @location(4) model_matrix_1: vec4<f32>,
+    @location(5) model_matrix_2: vec4<f32>,
+    @location(6) model_matrix_3: vec4<f32>,
+    @location(7) color: vec4<f32>,
+    @location(8) picking_color: vec4<f32>,
+    @location(9) lighting_model: u32,    // 0 = flat color, 1 = Blinn Phong
+    @location(10) ray_casting_type: u32, // 0 = usual rendering, 1 = sphere ray casting, 2 = cylinder ray casting
 };
 
 struct VertexOutput {
@@ -383,9 +389,10 @@ fn ray_casting(in: VertexOutput) -> RayCastingOutput {
 }
 
 fn calculate_fragment_color(in: VertexOutput, normal: vec3<f32>) -> vec4<f32> {
+    var color: vec4<f32>;
     switch uniforms.render_mode {
         case 1u { // picking mode
-            return in.color;
+            color = in.color;
         }
         default {
             switch in.lighting_model {
@@ -396,7 +403,7 @@ fn calculate_fragment_color(in: VertexOutput, normal: vec3<f32>) -> vec4<f32> {
                     let light_color = vec3<f32>(1.0, 1.0, 1.0) * 0.9;
                     let light_position = vec3<f32>(0.3, 0.3, 1.0);
 
-                    return calculate_blinn_phong(
+                    color = calculate_blinn_phong(
                         in.color, 
                         normal,
                         light_color, 
@@ -407,12 +414,13 @@ fn calculate_fragment_color(in: VertexOutput, normal: vec3<f32>) -> vec4<f32> {
                     );
                 }
                 default {
-                    return in.color;
+                    color = in.color;
                 }
             }
         }
     }
-    return in.color;
+
+    return color;
 }
 
 @fragment

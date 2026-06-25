@@ -17,17 +17,17 @@ interface MolecularVisualizerInstance {
 interface WasmModule {
     default: (wasm_url: URL) => Promise<void>;
     MolecularVisualizer: {
-        create(canvas: HTMLCanvasElement, data: Uint8Array): Promise<MolecularVisualizerInstance>;
+        create(canvas: HTMLCanvasElement, node_type: string, data: Uint8Array): Promise<MolecularVisualizerInstance>;
     };
 }
 
 let wasm_module: WasmModule | null = null;
 
 function supportedTypes(): string[] {
-    return ['mircmd:chemistry:atomic_coordinates'];
+    return ['mircmd:chemistry:atomic_coordinates', 'mircmd:chemistry:volume_cube'];
 }
 
-async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
+async function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Array): Promise<void> {
     clear_root(ctx.root);
 
     if (!wasm_module) {
@@ -40,7 +40,7 @@ async function run(ctx: ProgramPluginContext, data: Uint8Array): Promise<void> {
     const canvas = create_canvas(ctx.root);
     const container = canvas.parentElement as HTMLElement;
     const overlay = create_overlay(container);
-    const visualizer = await wasm_module.MolecularVisualizer.create(canvas, data);
+    const visualizer = await wasm_module.MolecularVisualizer.create(canvas, node_type, data);
     visualizer.render();
 
     // Handle resize
@@ -225,7 +225,7 @@ function update_overlay(
 
 // Export instantiate function compatible with current plugin loader
 export function instantiate(): {
-    run: (ctx: ProgramPluginContext, data: Uint8Array) => Promise<void>;
+    run: (ctx: ProgramPluginContext, node_type: string, data: Uint8Array) => Promise<void>;
     supportedTypes: () => string[];
 } {
     return { run, supportedTypes };

@@ -6,17 +6,29 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib"]
 
+[[bin]]
+name = "debug_font_atlas"
+path = "src/bin/debug_font_atlas.rs"
+
+[features]
+default = []
+debug-tools = ["image"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde-wasm-bindgen = "0.6"
 shared_lib = { workspace = true }
 bytemuck = { version = "1.21", features = ["derive"] }
 num-traits = "0.2.19"
+js-sys = "0.3.85"
 wasm-bindgen = "0.2.108"
 wasm-bindgen-futures = "0.4.58"
 web-sys = { version = "0.3.85", features = ["HtmlCanvasElement"] }
 wgpu = "28.0.0"
 flume = "0.12.0"
+ab_glyph = "0.2.32"
+image = { version = "0.25", optional = true }
 
 [profile.release]
 opt-level = "s"

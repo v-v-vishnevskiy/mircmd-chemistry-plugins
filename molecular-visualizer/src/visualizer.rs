@@ -202,6 +202,13 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
+    pub async fn toggle_projection(&mut self) {
+        self.scene.toggle_projection().await;
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
         self.scene
             .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);

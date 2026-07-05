@@ -465,4 +465,8 @@ impl Scene {
         let molecule = self.molecule.as_mut().unwrap();
         molecule.toggle_atom_selection(atom_index, device, font_atlas, config)
     }
+
+    pub async fn toggle_projection(&mut self) {
+        self.projection_manager.toggle_projection_mode();
+    }
 }

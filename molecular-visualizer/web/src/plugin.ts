@@ -11,6 +11,7 @@ interface MolecularVisualizerInstance {
     rotate_scene(pitch: number, yaw: number, roll: number): void;
     new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
     toggle_atom_selection(x: number, y: number): Promise<void>;
+    toggle_projection(): Promise<void>;
     render(): void;
 }
 
@@ -88,6 +89,71 @@ async function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Arra
                 is_async_busy = false;
             }
         }
+    });
+
+    canvas.addEventListener('contextmenu', async (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation(); // Предотвращаем стандартное поведение браузера
+
+        ctx.contextMenu.open({
+            event, // Передаем нативное событие для правильного расчета координат (posX/posY)
+            items: [
+              { label: "Atom labels", children: [
+                { label: "Show all", action: () => {} },
+                { label: "Hide all", action: () => {} },
+                { label: "", separator: true },
+                { label: "Show selected", action: () => {} },
+                { label: "Hide selected", action: () => {} },
+                { label: "", separator: true },
+                { label: "Toggle all", action: () => {} },
+                { label: "Toggle selected", action: () => {} },
+              ] },
+              { label: "Bonds", children: [
+                { label: "Add selected", action: () => {} },
+                { label: "Remove selected", action: () => {} },
+                { label: "Toggle selected", action: () => {} },
+                { label: "Build dynamically...", action: () => {} },
+                { label: "Rebuild all", action: () => {} },
+                { label: "Rebuild default", action: () => {} },
+              ] },
+              { label: "Selection", children: [
+                { label: "Select all atoms", action: () => {} },
+                { label: "Toggle all atoms", action: () => {} },
+                { label: "Toggle selected", action: () => {} },
+              ] },
+              { label: "Calculate", children: [
+                { label: "Interatomic distance", action: () => {} },
+                { label: "Interatomic angle", action: () => {} },
+                { label: "Out-of-plane angle", action: () => {} },
+                { label: "Auto parameter", action: () => {} },
+                { label: "Selected fragments", action: () => {} },
+              ] },
+              { label: "Cloaking", children: [
+                { label: "Cloak all selected", action: () => {} },
+                { label: "Cloak all not selected", action: () => {} },
+                { label: "Cloak all H atoms", action: () => {} },
+                { label: "Cloak not selected H atoms", action: () => {} },
+                { label: "Toggle all H atoms", action: () => {} },
+                { label: "Cloak atoms by type...", action: () => {} },
+                { label: "", separator: true },
+                { label: "Uncloak all", action: () => {} },
+              ] },
+              { label: "Save image...", action: () => {} },
+              { label: "", separator: true },
+              { label: "Coordinates set", children: [
+                { label: "Next", action: () => {} },
+                { label: "Previous", action: () => {} },
+              ] },
+              { label: "", separator: true },
+              { label: "Style", children: [
+                { label: "Next", action: () => {} },
+                { label: "Previous", action: () => {} },
+              ] },
+              { label: "", separator: true },
+              { label: "Toggle projection", action: async () => { await visualizer.toggle_projection(); } },
+            ],
+            data: {} // Можно прокинуть локальные данные элемента
+          });
     });
 
     canvas.addEventListener('mousemove', async (event: MouseEvent) => {

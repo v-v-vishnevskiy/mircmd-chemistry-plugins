@@ -8,6 +8,7 @@ use super::atom::AtomInfo;
 use super::config::Config;
 use super::core::Vec3;
 use super::scene::Scene;
+use super::state::{CoordinateAxes, State};
 use super::types::Color;
 
 #[wasm_bindgen]
@@ -214,5 +215,41 @@ impl MolecularVisualizer {
             .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
 
         Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_state(&self) -> State {
+        State {
+            coordinate_axes: CoordinateAxes {
+                visible: self.scene.coordinate_axes.visible,
+                labels_visible: self.scene.coordinate_axes.labels_visible,
+                both_directions: self.scene.coordinate_axes.both_directions,
+                use_origin: self.scene.coordinate_axes.use_origin,
+            },
+        }
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_visible(&mut self, value: bool) {
+        self.scene.coordinate_axes.set_visible(value);
+        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_labels_visible(&mut self, value: bool) {
+        self.scene.coordinate_axes.set_labels_visible(value);
+        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_both_directions(&mut self, value: bool) {
+        self.scene.coordinate_axes.set_both_directions(value);
+        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_use_origin(&mut self, value: bool) {
+        self.scene.coordinate_axes.set_use_origin(value);
+        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 }

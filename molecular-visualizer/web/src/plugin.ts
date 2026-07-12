@@ -5,6 +5,17 @@ interface AtomInfo {
     tag: number;
 }
 
+interface CoordinateAxes {
+    visible: boolean;
+    labels_visible: boolean;
+    both_directions: boolean;
+    use_origin: boolean;
+}
+
+interface State {
+    coordinate_axes: CoordinateAxes;
+}
+
 interface MolecularVisualizerInstance {
     resize(width: number, height: number): void;
     scale_scene(factor: number): void;
@@ -12,6 +23,11 @@ interface MolecularVisualizerInstance {
     new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
     toggle_atom_selection(x: number, y: number): Promise<void>;
     toggle_projection(): Promise<void>;
+    get_state(): State;
+    set_coordinate_axes_visible(value: boolean): Promise<void>;
+    set_coordinate_axes_labels_visible(value: boolean): Promise<void>;
+    set_coordinate_axes_both_directions(value: boolean): Promise<void>;
+    set_coordinate_axes_use_origin(value: boolean): Promise<void>;
     render(): void;
 }
 
@@ -93,39 +109,78 @@ async function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Arra
 
     canvas.addEventListener('contextmenu', async (event: MouseEvent) => {
         event.preventDefault();
-        event.stopPropagation(); // Предотвращаем стандартное поведение браузера
+        event.stopPropagation();
+
+        const state = visualizer.get_state();
 
         ctx.contextMenu.open({
-            event, // Передаем нативное событие для правильного расчета координат (posX/posY)
+            event,
             items: [
               { label: "Atom labels", children: [
+                { label: "Symbol", checkable: true, checked: true, action: () => {} },
+                { label: "Number", checkable: true, checked: true, action: () => {} },
+                { label: "", separator: true },
                 { label: "Show all", action: () => {} },
                 { label: "Hide all", action: () => {} },
                 { label: "", separator: true },
                 { label: "Show selected", action: () => {} },
                 { label: "Hide selected", action: () => {} },
                 { label: "", separator: true },
-                { label: "Toggle all", action: () => {} },
-                { label: "Toggle selected", action: () => {} },
+                { label: "Toggle all", shortcut: "L", action: () => {} },
+                { label: "Toggle selected", shortcut: "Ctrl+L", action: () => {} },
+              ] },
+              { label: "Coordinate axes", children: [
+                { 
+                    label: "Show",
+                    checkable: true,
+                    checked: state.coordinate_axes.visible,
+                    action: async () => { 
+                        await visualizer.set_coordinate_axes_visible(!state.coordinate_axes.visible);
+                    }
+                },
+                { 
+                    label: "Labels", 
+                    checkable: true, 
+                    checked: state.coordinate_axes.labels_visible, 
+                    action: async () => { 
+                        await visualizer.set_coordinate_axes_labels_visible(!state.coordinate_axes.labels_visible);
+                    } 
+                },
+                { 
+                    label: "Both directions", 
+                    checkable: true, 
+                    checked: state.coordinate_axes.both_directions, 
+                    action: async () => { 
+                        await visualizer.set_coordinate_axes_both_directions(!state.coordinate_axes.both_directions);
+                    }
+                },
+                { 
+                    label: "Center", 
+                    checkable: true, 
+                    checked: !state.coordinate_axes.use_origin, 
+                    action: async () => { 
+                        await visualizer.set_coordinate_axes_use_origin(!state.coordinate_axes.use_origin);
+                    }
+                },
               ] },
               { label: "Bonds", children: [
                 { label: "Add selected", action: () => {} },
                 { label: "Remove selected", action: () => {} },
-                { label: "Toggle selected", action: () => {} },
+                { label: "Toggle selected", shortcut: "B", action: () => {} },
                 { label: "Build dynamically...", action: () => {} },
                 { label: "Rebuild all", action: () => {} },
                 { label: "Rebuild default", action: () => {} },
               ] },
               { label: "Selection", children: [
                 { label: "Select all atoms", action: () => {} },
-                { label: "Toggle all atoms", action: () => {} },
+                { label: "Toggle all atoms", shortcut: "Ctrl+A", action: () => {} },
                 { label: "Toggle selected", action: () => {} },
               ] },
               { label: "Calculate", children: [
                 { label: "Interatomic distance", action: () => {} },
                 { label: "Interatomic angle", action: () => {} },
                 { label: "Out-of-plane angle", action: () => {} },
-                { label: "Auto parameter", action: () => {} },
+                { label: "Auto parameter", shortcut: "P", action: () => {} },
                 { label: "Selected fragments", action: () => {} },
               ] },
               { label: "Cloaking", children: [
@@ -133,26 +188,30 @@ async function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Arra
                 { label: "Cloak all not selected", action: () => {} },
                 { label: "Cloak all H atoms", action: () => {} },
                 { label: "Cloak not selected H atoms", action: () => {} },
-                { label: "Toggle all H atoms", action: () => {} },
+                { label: "Toggle all H atoms", shortcut: "H", action: () => {} },
                 { label: "Cloak atoms by type...", action: () => {} },
                 { label: "", separator: true },
                 { label: "Uncloak all", action: () => {} },
               ] },
-              { label: "Save image...", action: () => {} },
+              { label: "Save image...", shortcut: "S", action: () => {} },
               { label: "", separator: true },
               { label: "Coordinates set", children: [
-                { label: "Next", action: () => {} },
-                { label: "Previous", action: () => {} },
+                { label: "Next", shortcut: "Ctrl+Right", action: () => {} },
+                { label: "Previous", shortcut: "Ctrl+Left", action: () => {} },
               ] },
               { label: "", separator: true },
               { label: "Style", children: [
-                { label: "Next", action: () => {} },
-                { label: "Previous", action: () => {} },
+                { label: "Next", shortcut: "Ctrl+Down", action: () => {} },
+                { label: "Previous", shortcut: "Ctrl+Up", action: () => {} },
               ] },
               { label: "", separator: true },
-              { label: "Toggle projection", action: async () => { await visualizer.toggle_projection(); } },
+              { 
+                label: "Toggle projection", 
+                shortcut: "Ctrl+P", 
+                action: async () => { await visualizer.toggle_projection(); } 
+              }
             ],
-            data: {} // Можно прокинуть локальные данные элемента
+            data: {}
           });
     });
 

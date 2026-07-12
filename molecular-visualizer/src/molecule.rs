@@ -22,6 +22,8 @@ pub struct Molecule {
     atoms: Vec<Atom>,
     bonds: Vec<Bond>,
 
+    pub center: Vec3<f32>,
+
     pub radius: f32,
     pub transform: Mat4<f32>,
     pub atoms_instance_buffer: InstanceBuffer,
@@ -124,6 +126,7 @@ impl Molecule {
             bonds_instance_buffer: InstanceBuffer::new(Self::create_bonds_instance_buffer(&bonds, device), bonds.len()),
             atoms,
             bonds,
+            center,
             radius: radius.sqrt(),
             transform,
             highlighted_atom: 0,

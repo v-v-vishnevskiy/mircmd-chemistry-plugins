@@ -8,6 +8,7 @@ mod isosurface;
 mod molecule;
 mod renderer;
 mod scene;
+mod state;
 mod types;
 mod utils;
 mod vertex_buffer;

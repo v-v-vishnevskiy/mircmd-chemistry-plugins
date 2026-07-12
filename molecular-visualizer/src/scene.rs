@@ -30,7 +30,7 @@ impl Scene {
         let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
         let rect_vb = Self::create_font_atlas_vb(device);
 
-        let coordinate_axes = CoordinateAxes::new(device, Vec3::new(0.0, 0.0, 0.0), true, &font_atlas);
+        let coordinate_axes = CoordinateAxes::new(device);
 
         Self {
             projection_manager: ProjectionManager::new(1, 1, ProjectionMode::Perspective),
@@ -77,6 +77,7 @@ impl Scene {
         match Molecule::new(device, config, data, &self.font_atlas) {
             Ok(molecule) => {
                 self.setup_camera(molecule.radius);
+                self.coordinate_axes.set_position(molecule.center);
                 self.molecule = Some(molecule);
             }
             Err(_) => {}
@@ -133,6 +134,8 @@ impl Scene {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
+
+        self.coordinate_axes.update(device, &self.font_atlas);
 
         // Pass 1: Render opaque objects
         {

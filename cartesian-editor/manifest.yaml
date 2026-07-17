@@ -1,5 +1,6 @@
 target: Ui
 type: Program
+protocol: v1
 metadata:
   id: chemistry-cartesian-editor
   name: Chemistry Cartesian Editor

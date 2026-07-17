@@ -1,5 +1,6 @@
 target: Ui
 type: Icons
+protocol: v1
 metadata:
   id: chemistry-object-icons
   name: Chemistry Object Icons

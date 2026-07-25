@@ -1,0 +1,109 @@
+/* Plugin-owned layout for control panel blocks (Shadow DOM). */
+
+.cp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Shared column grid (Qt QGridLayout parity): label | control | trailing */
+.cp-form {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  column-gap: 8px;
+  row-gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.cp-form-row {
+  display: contents;
+}
+
+.cp-label {
+  font-size: 12px;
+  color: #222;
+  white-space: nowrap;
+}
+
+.cp-span-controls {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cp-span-full {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.cp-span-full > .mircmd-button {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cp-inline-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Number column width so spinboxes align vertically */
+.cp-form .mircmd-number input[type="number"] {
+  width: 72px;
+}
+
+.cp-form .mircmd-slider {
+  width: 100%;
+  min-width: 0;
+}
+
+.axes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+/* Axis X/Y/Z: label | axis color | label color | text */
+.cp-form-axes {
+  grid-template-columns: max-content auto auto minmax(0, 1fr);
+}
+
+.cp-form-axes .cp-axis-colors {
+  display: contents;
+}
+
+/* Volume cube: value/inverse | color | button — no 1fr stretch */
+.cp-form-volume {
+  grid-template-columns: max-content max-content max-content;
+  justify-content: start;
+}
+
+.cp-isosurface-tree {
+  width: 100%;
+  min-height: 125px;
+  max-height: 125px;
+  overflow: auto;
+  min-width: 0;
+}
+
+.cp-isosurface-tree .mircmd-tree {
+  width: 100%;
+  min-height: 125px;
+  max-height: 125px;
+}
+
+.cp-tree-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cp-icon-button {
+  padding: 1px 6px !important;
+  min-width: 24px;
+}

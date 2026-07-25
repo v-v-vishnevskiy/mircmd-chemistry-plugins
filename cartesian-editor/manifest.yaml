@@ -1,5 +1,5 @@
-target: Ui
-type: Program
+target: ui
+type: program
 protocol: v1
 metadata:
   id: chemistry-cartesian-editor

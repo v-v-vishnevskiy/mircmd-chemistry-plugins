@@ -1,5 +1,5 @@
-target: Ui
-type: Icons
+target: ui
+type: icons
 protocol: v1
 metadata:
   id: chemistry-object-icons

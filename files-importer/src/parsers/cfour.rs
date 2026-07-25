@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
-// Licensed under the MIT License
+// Licensed under the Apache 2.0 License
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};

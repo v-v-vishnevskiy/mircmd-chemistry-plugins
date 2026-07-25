@@ -1,5 +1,5 @@
-target: Core
-type: FileImporter
+target: core
+type: file_importer
 protocol: v1
 metadata:
   id: chemistry-files-importer

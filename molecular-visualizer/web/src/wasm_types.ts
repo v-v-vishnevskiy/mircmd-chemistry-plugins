@@ -11,23 +11,86 @@ export interface AtomInfo {
   tag: number;
 }
 
+export interface Rgba {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+export interface TransformState {
+  pitch: number;
+  yaw: number;
+  roll: number;
+  scale: number;
+  perspective: boolean;
+}
+
+export interface AtomLabelsState {
+  symbol_visible: boolean;
+  number_visible: boolean;
+  size: number;
+  offset: number;
+}
+
+export interface SurfaceState {
+  id: number;
+  inverted: boolean;
+  visible: boolean;
+  color: Rgba;
+}
+
+export interface SurfaceGroupState {
+  id: number;
+  value: number;
+  visible: boolean;
+  readonly surfaces: SurfaceState[];
+}
+
+export interface CubesAndSurfacesState {
+  available: boolean;
+  readonly groups: SurfaceGroupState[];
+}
+
+export interface CoordinateAxisState {
+  color: Rgba;
+  label_color: Rgba;
+  label: string;
+}
+
 export interface CoordinateAxesState {
   visible: boolean;
   labels_visible: boolean;
   both_directions: boolean;
   use_origin: boolean;
-  // TODO: length, thickness, colors, label texts, auto-adjust
+  length: number;
+  thickness: number;
+  font_size: number;
+  auto_adjust_available: boolean;
+  x: CoordinateAxisState;
+  y: CoordinateAxisState;
+  z: CoordinateAxisState;
+}
+
+export interface AppearanceState {
+  background: Rgba;
+  style: string;
 }
 
 export interface VisualizerState {
+  transform: TransformState;
+  atom_labels: AtomLabelsState;
+  cubes_and_surfaces: CubesAndSurfacesState;
   coordinate_axes: CoordinateAxesState;
-  // TODO: view, atom_labels, appearance, cubes_and_surfaces
+  appearance: AppearanceState;
 }
 
 export interface MolecularVisualizerInstance {
   resize(width: number, height: number): void;
   scale_scene(factor: number): void;
   rotate_scene(pitch: number, yaw: number, roll: number): void;
+  set_scene_rotation(pitch: number, yaw: number, roll: number): void;
+  set_scene_scale(factor: number): void;
   new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
   toggle_atom_selection(x: number, y: number): Promise<void>;
   toggle_projection(): Promise<void>;

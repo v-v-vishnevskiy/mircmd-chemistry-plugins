@@ -25,6 +25,8 @@ export const AxesCommand = {
 } as const;
 
 export const ViewCommand = {
+  RotateScene: "view.rotate_scene",
+  ScaleScene: "view.scale_scene",
   SetSceneRotation: "view.set_scene_rotation",
   SetSceneScale: "view.set_scene_scale",
 } as const;
@@ -60,6 +62,30 @@ function readBoolPayload(payload: unknown): boolean {
     return Boolean((payload as { value: unknown }).value);
   }
   return Boolean(payload);
+}
+
+function readNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function readRotationPayload(payload: unknown): { pitch: number; yaw: number; roll: number } {
+  if (payload && typeof payload === "object") {
+    const data = payload as { pitch?: unknown; yaw?: unknown; roll?: unknown };
+    return {
+      pitch: readNumber(data.pitch),
+      yaw: readNumber(data.yaw),
+      roll: readNumber(data.roll),
+    };
+  }
+  return { pitch: 0, yaw: 0, roll: 0 };
+}
+
+function readFactorPayload(payload: unknown): number {
+  if (typeof payload === "number") return payload;
+  if (payload && typeof payload === "object" && "factor" in payload) {
+    return readNumber((payload as { factor: unknown }).factor, 1);
+  }
+  return 1;
 }
 
 export class MolecularVisualizerController {
@@ -106,6 +132,26 @@ export class MolecularVisualizerController {
         case AxesCommand.SetUseOrigin:
           await this.visualizer.set_coordinate_axes_use_origin(readBoolPayload(command.payload));
           this.notify(["coordinate_axes"]);
+          break;
+        case ViewCommand.RotateScene: {
+          const { pitch, yaw, roll } = readRotationPayload(command.payload);
+          this.visualizer.rotate_scene(pitch, yaw, roll);
+          this.notify(["view"]);
+          break;
+        }
+        case ViewCommand.ScaleScene:
+          this.visualizer.scale_scene(readFactorPayload(command.payload));
+          this.notify(["view"]);
+          break;
+        case ViewCommand.SetSceneRotation: {
+          const { pitch, yaw, roll } = readRotationPayload(command.payload);
+          this.visualizer.set_scene_rotation(pitch, yaw, roll);
+          this.notify(["view"]);
+          break;
+        }
+        case ViewCommand.SetSceneScale:
+          this.visualizer.set_scene_scale(readFactorPayload(command.payload));
+          this.notify(["view"]);
           break;
         default:
           break;

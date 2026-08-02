@@ -84,8 +84,16 @@ impl Transform {
         self.dirty = true
     }
 
-    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
-        self.rotation = rotation;
+    pub fn set_rotation(&mut self, pitch: f32, yaw: f32, roll: f32) {
+        self.pitch = normalize_angle(pitch);
+        self.yaw = normalize_angle(yaw);
+        self.roll = normalize_angle(roll);
+
+        let pitch_quat = Quaternion::from_axis_and_angle(Vec3::new(1.0, 0.0, 0.0), pitch);
+        let yaw_quat = Quaternion::from_axis_and_angle(Vec3::new(0.0, 1.0, 0.0), yaw);
+        let roll_quat = Quaternion::from_axis_and_angle(Vec3::new(0.0, 0.0, 1.0), roll);
+
+        self.rotation = pitch_quat * yaw_quat * roll_quat;
         self.dirty = true;
     }
 }

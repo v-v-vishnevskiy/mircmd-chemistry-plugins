@@ -26,6 +26,10 @@ pub struct Scene {
 }
 
 impl Scene {
+    pub fn has_molecule(&self) -> bool {
+        self.molecule.is_some()
+    }
+
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, surface_config: &wgpu::SurfaceConfiguration) -> Self {
         let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
         let rect_vb = Self::create_font_atlas_vb(device);

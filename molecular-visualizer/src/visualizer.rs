@@ -6,10 +6,15 @@ use web_sys::HtmlCanvasElement;
 
 use super::atom::AtomInfo;
 use super::config::Config;
+use super::core::ProjectionMode;
 use super::core::Vec3;
 use super::scene::Scene;
-use super::state::{CoordinateAxes, State};
+use super::state::{Appearance, AtomLabels, CoordinateAxes, CoordinateAxis, CubesAndSurfaces, Rgba, State, Transform};
 use super::types::Color;
+
+fn color_to_rgba(color: Color) -> Rgba {
+    Rgba::new(color.r, color.g, color.b, color.a)
+}
 
 #[wasm_bindgen]
 pub struct MolecularVisualizer {
@@ -176,6 +181,24 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
+    pub fn set_scene_rotation(&mut self, pitch: f32, yaw: f32, roll: f32) {
+        self.scene.transform.set_rotation(pitch, yaw, roll);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_scene_scale(&mut self, factor: f32) {
+        if factor == 0.0 {
+            return;
+        }
+
+        self.scene.transform.set_scale(Vec3::new(factor, factor, factor));
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
     pub async fn new_cursor_position(&mut self, x: u32, y: u32) -> Option<AtomInfo> {
         let (atom, needs_render) = self
             .scene
@@ -219,37 +242,72 @@ impl MolecularVisualizer {
 
     #[wasm_bindgen]
     pub fn get_state(&self) -> State {
-        State {
-            coordinate_axes: CoordinateAxes {
-                visible: self.scene.coordinate_axes.visible,
-                labels_visible: self.scene.coordinate_axes.labels_visible,
-                both_directions: self.scene.coordinate_axes.both_directions,
-                use_origin: self.scene.coordinate_axes.use_origin,
+        let axes = &self.scene.coordinate_axes;
+        let color_x = color_to_rgba(axes.color_x);
+        let color_y = color_to_rgba(axes.color_y);
+        let color_z = color_to_rgba(axes.color_z);
+        let style = &self.visualizer_config.style;
+        let label = &style.atom_label;
+        let bg = style.background_color;
+
+        State::new(
+            Transform {
+                pitch: self.scene.transform.pitch,
+                yaw: self.scene.transform.yaw,
+                roll: self.scene.transform.roll,
+                scale: self.scene.transform.scale.x,
+                perspective: self.scene.projection_manager.mode == ProjectionMode::Perspective,
             },
-        }
+            AtomLabels {
+                symbol_visible: label.symbol_visible,
+                number_visible: label.number_visible,
+                size: label.size,
+                offset: label.offset,
+            },
+            CubesAndSurfaces::new(self.scene.volume_cube.is_some(), Vec::new()),
+            CoordinateAxes::new(
+                axes.visible,
+                axes.labels_visible,
+                axes.both_directions,
+                axes.use_origin,
+                axes.length,
+                axes.thickness,
+                // Temporary mapping: runtime uses world-space labels_size; panel expects int font size.
+                (axes.labels_size * 100.0).round().max(1.0) as u32,
+                self.scene.has_molecule(),
+                CoordinateAxis::new(color_x, color_x, axes.label_x.clone()),
+                CoordinateAxis::new(color_y, color_y, axes.label_y.clone()),
+                CoordinateAxis::new(color_z, color_z, axes.label_z.clone()),
+            ),
+            Appearance::new(color_to_rgba(bg), String::from("Default")),
+        )
     }
 
     #[wasm_bindgen]
     pub async fn set_coordinate_axes_visible(&mut self, value: bool) {
         self.scene.coordinate_axes.set_visible(value);
-        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 
     #[wasm_bindgen]
     pub async fn set_coordinate_axes_labels_visible(&mut self, value: bool) {
         self.scene.coordinate_axes.set_labels_visible(value);
-        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 
     #[wasm_bindgen]
     pub async fn set_coordinate_axes_both_directions(&mut self, value: bool) {
         self.scene.coordinate_axes.set_both_directions(value);
-        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 
     #[wasm_bindgen]
     pub async fn set_coordinate_axes_use_origin(&mut self, value: bool) {
         self.scene.coordinate_axes.set_use_origin(value);
-        self.scene.render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }
 }

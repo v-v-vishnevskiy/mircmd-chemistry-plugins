@@ -36,6 +36,8 @@ export const AtomLabelsCommand = {
   SetNumberVisible: "atom_labels.set_number_visible",
   SetSize: "atom_labels.set_size",
   SetOffset: "atom_labels.set_offset",
+  SetAllVisible: "atom_labels.set_all_visible",
+  SetSelectedVisible: "atom_labels.set_selected_visible",
   ToggleVisibilityForAllAtoms: "atom_labels.toggle_visibility_for_all_atoms",
   ToggleVisibilityForSelectedAtoms: "atom_labels.toggle_visibility_for_selected_atoms",
 } as const;
@@ -86,6 +88,14 @@ function readFactorPayload(payload: unknown): number {
     return readNumber((payload as { factor: unknown }).factor, 1);
   }
   return 1;
+}
+
+function readValuePayload(payload: unknown, fallback = 0): number {
+  if (typeof payload === "number") return readNumber(payload, fallback);
+  if (payload && typeof payload === "object" && "value" in payload) {
+    return readNumber((payload as { value: unknown }).value, fallback);
+  }
+  return fallback;
 }
 
 export class MolecularVisualizerController {
@@ -152,6 +162,38 @@ export class MolecularVisualizerController {
         case ViewCommand.SetSceneScale:
           this.visualizer.set_scene_scale(readFactorPayload(command.payload));
           this.notify(["view"]);
+          break;
+        case AtomLabelsCommand.SetSymbolVisible:
+          this.visualizer.set_atom_labels_symbol_visible(readBoolPayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.SetNumberVisible:
+          this.visualizer.set_atom_labels_number_visible(readBoolPayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.SetSize:
+          this.visualizer.set_atom_labels_size(readValuePayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.SetOffset:
+          this.visualizer.set_atom_labels_offset(readValuePayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.SetAllVisible:
+          this.visualizer.set_all_atom_labels_visible(readBoolPayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.SetSelectedVisible:
+          this.visualizer.set_selected_atom_labels_visible(readBoolPayload(command.payload));
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.ToggleVisibilityForAllAtoms:
+          this.visualizer.toggle_all_atom_labels_visible();
+          this.notify(["atom_labels"]);
+          break;
+        case AtomLabelsCommand.ToggleVisibilityForSelectedAtoms:
+          this.visualizer.toggle_selected_atom_labels_visible();
+          this.notify(["atom_labels"]);
           break;
         default:
           break;

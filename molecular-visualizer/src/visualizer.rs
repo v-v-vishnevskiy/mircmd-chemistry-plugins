@@ -284,6 +284,74 @@ impl MolecularVisualizer {
     }
 
     #[wasm_bindgen]
+    pub fn set_atom_labels_symbol_visible(&mut self, value: bool) {
+        self.visualizer_config.style.atom_label.symbol_visible = value;
+        self.scene.set_atom_labels_symbol_visible(value);
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_atom_labels_number_visible(&mut self, value: bool) {
+        self.visualizer_config.style.atom_label.number_visible = value;
+        self.scene.set_atom_labels_number_visible(value);
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_atom_labels_size(&mut self, value: f32) {
+        self.visualizer_config.style.atom_label.size = value;
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_atom_labels_offset(&mut self, value: f32) {
+        self.visualizer_config.style.atom_label.offset = value;
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_all_atom_labels_visible(&mut self, value: bool) {
+        self.visualizer_config.style.atom_label.label_visible = value;
+        self.scene.set_all_atom_labels_visible(value);
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_selected_atom_labels_visible(&mut self, value: bool) {
+        self.scene.set_selected_atom_labels_visible(value);
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn toggle_all_atom_labels_visible(&mut self) {
+        let visible = self.scene.toggle_all_atom_labels_visible();
+        self.visualizer_config.style.atom_label.label_visible = visible;
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub fn toggle_selected_atom_labels_visible(&mut self) {
+        self.scene.toggle_selected_atom_labels_visible();
+        self.scene.update_atom_labels(&self.device, &self.visualizer_config);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
     pub async fn set_coordinate_axes_visible(&mut self, value: bool) {
         self.scene.coordinate_axes.set_visible(value);
         self.scene

@@ -2,7 +2,11 @@
 // Licensed under the Apache 2.0 License
 
 import type { ProgramPluginContext, ProgramSession } from "./program_context";
-import { MolecularVisualizerController, AxesCommand } from "./controller";
+import {
+  MolecularVisualizerController,
+  AxesCommand,
+  AtomLabelsCommand,
+} from "./controller";
 import { MolecularVisualizerSession } from "./session";
 import type {
   AtomInfo,
@@ -110,17 +114,87 @@ async function run(
         {
           label: "Atom labels",
           children: [
-            { label: "Symbol", checkable: true, checked: true, action: () => {} },
-            { label: "Number", checkable: true, checked: true, action: () => {} },
+            {
+              label: "Symbol",
+              checkable: true,
+              checked: state.atom_labels.symbol_visible,
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetSymbolVisible,
+                  payload: { value: !state.atom_labels.symbol_visible },
+                });
+              },
+            },
+            {
+              label: "Number",
+              checkable: true,
+              checked: state.atom_labels.number_visible,
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetNumberVisible,
+                  payload: { value: !state.atom_labels.number_visible },
+                });
+              },
+            },
             { label: "", separator: true },
-            { label: "Show all", action: () => {} },
-            { label: "Hide all", action: () => {} },
+            {
+              label: "Show all",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetAllVisible,
+                  payload: { value: true },
+                });
+              },
+            },
+            {
+              label: "Hide all",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetAllVisible,
+                  payload: { value: false },
+                });
+              },
+            },
             { label: "", separator: true },
-            { label: "Show selected", action: () => {} },
-            { label: "Hide selected", action: () => {} },
+            {
+              label: "Show selected",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetSelectedVisible,
+                  payload: { value: true },
+                });
+              },
+            },
+            {
+              label: "Hide selected",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.SetSelectedVisible,
+                  payload: { value: false },
+                });
+              },
+            },
             { label: "", separator: true },
-            { label: "Toggle all", shortcut: "L", action: () => {} },
-            { label: "Toggle selected", shortcut: "Ctrl+L", action: () => {} },
+            {
+              label: "Toggle all",
+              shortcut: "L",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.ToggleVisibilityForAllAtoms,
+                  payload: {},
+                });
+              },
+            },
+            {
+              label: "Toggle selected",
+              shortcut: "Ctrl+L",
+              action: async () => {
+                await controller.execute({
+                  type: AtomLabelsCommand.ToggleVisibilityForSelectedAtoms,
+                  payload: {},
+                });
+              },
+            },
           ],
         },
         {

@@ -476,4 +476,74 @@ impl Scene {
     pub async fn toggle_projection(&mut self) {
         self.projection_manager.toggle_projection_mode();
     }
+
+    pub fn set_atom_labels_symbol_visible(&mut self, value: bool) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .set_atom_labels_symbol_visible(value);
+    }
+
+    pub fn set_atom_labels_number_visible(&mut self, value: bool) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .set_atom_labels_number_visible(value);
+    }
+
+    pub fn set_all_atom_labels_visible(&mut self, value: bool) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .set_all_atom_labels_visible(value);
+    }
+
+    pub fn set_selected_atom_labels_visible(&mut self, value: bool) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .set_selected_atom_labels_visible(value);
+    }
+
+    pub fn toggle_all_atom_labels_visible(&mut self) -> bool {
+        if self.molecule.is_none() {
+            return false;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .toggle_all_atom_labels_visible()
+    }
+
+    pub fn toggle_selected_atom_labels_visible(&mut self) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .toggle_selected_atom_labels_visible();
+    }
+
+    pub fn update_atom_labels(&mut self, device: &wgpu::Device, config: &Config) {
+        if self.molecule.is_none() {
+            return;
+        }
+        self.molecule
+            .as_mut()
+            .unwrap()
+            .update_atom_labels(device, &self.font_atlas, config);
+    }
 }

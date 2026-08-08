@@ -40,6 +40,7 @@ pub struct Atom {
     pub visible: bool,
     pub highlighted: bool,
     pub selected: bool,
+    pub label_visible: bool,
     pub symbol_visible: bool,
     pub number_visible: bool,
 }
@@ -54,6 +55,7 @@ impl Atom {
         picking_color: Color,
         bounding_sphere_color: Color,
         bounding_sphere_scale_factor: f32,
+        label_visible: bool,
         symbol_visible: bool,
         number_visible: bool,
     ) -> Self {
@@ -69,6 +71,7 @@ impl Atom {
             visible: true,
             highlighted: false,
             selected: false,
+            label_visible,
             symbol_visible,
             number_visible,
         }

@@ -83,6 +83,7 @@ impl Molecule {
                 id_to_color(i + 1),
                 config.style.selected_atom.color,
                 config.style.selected_atom.scale_factor,
+                config.style.atom_label.label_visible,
                 config.style.atom_label.symbol_visible,
                 config.style.atom_label.number_visible,
             ));
@@ -149,7 +150,7 @@ impl Molecule {
                 if atom.selected {
                     spheres_data.push(atom.get_instance_data(true));
                 }
-                if atom.symbol_visible || atom.number_visible {
+                if atom.label_visible && (atom.symbol_visible || atom.number_visible) {
                     let labels = atom.get_label_instance_data(
                         config.style.atom_label.color,
                         config.style.atom_label.size / 100.0, // convert to angstroms
@@ -272,6 +273,86 @@ impl Molecule {
             self.atom_selections_instance_buffer.count,
         ) = Self::create_atoms_instance_buffers(&self.atoms, device, font_atlas, config);
         true
+    }
+
+    pub fn set_atom_labels_symbol_visible(&mut self, value: bool) {
+        for atom in &mut self.atoms {
+            atom.symbol_visible = value;
+        }
+    }
+
+    pub fn set_atom_labels_number_visible(&mut self, value: bool) {
+        for atom in &mut self.atoms {
+            atom.number_visible = value;
+        }
+    }
+
+    pub fn set_all_atom_labels_visible(&mut self, value: bool) {
+        for atom in &mut self.atoms {
+            atom.label_visible = value;
+        }
+    }
+
+    pub fn set_selected_atom_labels_visible(&mut self, value: bool) {
+        for index in &self.selected_atoms {
+            let atom = &mut self.atoms[*index];
+            atom.label_visible = value;
+        }
+    }
+
+    pub fn toggle_all_atom_labels_visible(&mut self) -> bool {
+        let all_visible = self.atoms.iter().all(|atom| atom.label_visible);
+        let next = !all_visible;
+        for atom in &mut self.atoms {
+            atom.label_visible = next;
+        }
+        next
+    }
+
+    pub fn toggle_selected_atom_labels_visible(&mut self) {
+        if self.selected_atoms.is_empty() {
+            return;
+        }
+        let all_visible = self
+            .selected_atoms
+            .iter()
+            .all(|&index| self.atoms[index].label_visible);
+        let next = !all_visible;
+        for &index in &self.selected_atoms {
+            self.atoms[index].label_visible = next;
+        }
+    }
+
+    pub fn update_atom_labels(&mut self, device: &wgpu::Device, font_atlas: &super::core::FontAtlas, config: &Config) {
+        let (count, buffer) = Self::create_atom_labels_instance_buffers(&self.atoms, device, font_atlas, config);
+        self.atom_labels_instance_buffer = InstanceBuffer::new(buffer, count);
+    }
+
+    fn create_atom_labels_instance_buffers(
+        atoms: &Vec<Atom>,
+        device: &wgpu::Device,
+        font_atlas: &super::core::FontAtlas,
+        config: &Config,
+    ) -> (usize, wgpu::Buffer) {
+        let mut atom_labels_data: Vec<CharInstanceData> = Vec::new();
+        for atom in atoms {
+            if atom.visible && atom.label_visible && (atom.symbol_visible || atom.number_visible) {
+                let labels = atom.get_label_instance_data(
+                    config.style.atom_label.color,
+                    config.style.atom_label.size / 100.0, // convert to angstroms
+                    config.style.atom_label.offset,
+                    font_atlas,
+                );
+                for (_, data) in labels {
+                    atom_labels_data.push(data);
+                }
+            }
+        }
+
+        (
+            atom_labels_data.len(),
+            create_char_instance_buffer(&atom_labels_data, device, "Atom Labels Instance Buffer"),
+        )
     }
 
     pub fn render_atoms_and_bonds(&self, render_pass: &mut wgpu::RenderPass) {

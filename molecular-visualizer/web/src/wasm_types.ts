@@ -91,6 +91,14 @@ export interface MolecularVisualizerInstance {
   rotate_scene(pitch: number, yaw: number, roll: number): void;
   set_scene_rotation(pitch: number, yaw: number, roll: number): void;
   set_scene_scale(factor: number): void;
+  set_atom_labels_symbol_visible(value: boolean): void;
+  set_atom_labels_number_visible(value: boolean): void;
+  set_atom_labels_size(value: number): void;
+  set_atom_labels_offset(value: number): void;
+  set_all_atom_labels_visible(value: boolean): void;
+  set_selected_atom_labels_visible(value: boolean): void;
+  toggle_all_atom_labels_visible(): void;
+  toggle_selected_atom_labels_visible(): void;
   new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
   toggle_atom_selection(x: number, y: number): Promise<void>;
   toggle_projection(): Promise<void>;

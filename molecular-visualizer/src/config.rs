@@ -26,6 +26,7 @@ pub struct AtomLabel {
     pub color: Color,
     pub size: f32,
     pub offset: f32,
+    pub label_visible: bool,
     pub symbol_visible: bool,
     pub number_visible: bool,
 }
@@ -901,6 +902,7 @@ impl Style {
                 color: Color::new(0.0, 0.0, 0.0, 1.0),
                 size: 10.0,
                 offset: 0.4,
+                label_visible: false,
                 symbol_visible: true,
                 number_visible: true,
             },

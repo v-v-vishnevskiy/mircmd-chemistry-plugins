@@ -98,6 +98,46 @@ function readValuePayload(payload: unknown, fallback = 0): number {
   return fallback;
 }
 
+function readAxisColorPayload(payload: unknown): {
+  axis: "x" | "y" | "z";
+  color: [number, number, number, number];
+} {
+  const data =
+    payload && typeof payload === "object"
+      ? (payload as { axis?: unknown; color?: unknown })
+      : {};
+  const axisRaw = typeof data.axis === "string" ? data.axis.toLowerCase() : "x";
+  const axis: "x" | "y" | "z" =
+    axisRaw === "y" || axisRaw === "z" ? axisRaw : "x";
+  const color = Array.isArray(data.color) ? data.color : [];
+  return {
+    axis,
+    color: [
+      readNumber(color[0]),
+      readNumber(color[1]),
+      readNumber(color[2]),
+      readNumber(color[3], 1),
+    ],
+  };
+}
+
+function readAxisTextPayload(payload: unknown): {
+  axis: "x" | "y" | "z";
+  text: string;
+} {
+  const data =
+    payload && typeof payload === "object"
+      ? (payload as { axis?: unknown; text?: unknown })
+      : {};
+  const axisRaw = typeof data.axis === "string" ? data.axis.toLowerCase() : "x";
+  const axis: "x" | "y" | "z" =
+    axisRaw === "y" || axisRaw === "z" ? axisRaw : "x";
+  return {
+    axis,
+    text: typeof data.text === "string" ? data.text : "",
+  };
+}
+
 export class MolecularVisualizerController {
   private disposed = false;
   private readonly listeners = new Set<StateChangeListener>();
@@ -143,6 +183,54 @@ export class MolecularVisualizerController {
           await this.visualizer.set_coordinate_axes_use_origin(readBoolPayload(command.payload));
           this.notify(["coordinate_axes"]);
           break;
+        case AxesCommand.SetLength:
+          await this.visualizer.set_coordinate_axes_length(readValuePayload(command.payload));
+          this.notify(["coordinate_axes"]);
+          break;
+        case AxesCommand.AdjustLength:
+          await this.visualizer.adjust_coordinate_axes_length();
+          this.notify(["coordinate_axes"]);
+          break;
+        case AxesCommand.SetThickness:
+          await this.visualizer.set_coordinate_axes_thickness(readValuePayload(command.payload));
+          this.notify(["coordinate_axes"]);
+          break;
+        case AxesCommand.SetFontSize:
+          await this.visualizer.set_coordinate_axes_labels_size(
+            readValuePayload(command.payload) / 100,
+          );
+          this.notify(["coordinate_axes"]);
+          break;
+        case AxesCommand.SetColor: {
+          const { axis, color } = readAxisColorPayload(command.payload);
+          await this.visualizer.set_coordinate_axis_color(
+            axis,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+          );
+          this.notify(["coordinate_axes"]);
+          break;
+        }
+        case AxesCommand.SetLabelColor: {
+          const { axis, color } = readAxisColorPayload(command.payload);
+          await this.visualizer.set_coordinate_axis_label_color(
+            axis,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+          );
+          this.notify(["coordinate_axes"]);
+          break;
+        }
+        case AxesCommand.SetText: {
+          const { axis, text } = readAxisTextPayload(command.payload);
+          await this.visualizer.set_coordinate_axis_text(axis, text);
+          this.notify(["coordinate_axes"]);
+          break;
+        }
         case ViewCommand.RotateScene: {
           const { pitch, yaw, roll } = readRotationPayload(command.payload);
           this.visualizer.rotate_scene(pitch, yaw, roll);

@@ -86,7 +86,7 @@ impl Axis {
 
         let mut data = Vec::new();
 
-        let gap = 0.2;
+        let gap = 0.15;
         let mut total_width = 0.0;
         let mut chars_info = Vec::with_capacity(self.label.len());
 
@@ -137,6 +137,9 @@ pub struct CoordinateAxes {
     pub color_x: Color,
     pub color_y: Color,
     pub color_z: Color,
+    pub label_color_x: Color,
+    pub label_color_y: Color,
+    pub label_color_z: Color,
 
     cube_vb: VertexBuffer,
     cone_vb: VertexBuffer,
@@ -169,6 +172,9 @@ impl CoordinateAxes {
             color_x: Color::new(1.0, 0.0, 0.0, 1.0),
             color_y: Color::new(0.0, 1.0, 0.0, 1.0),
             color_z: Color::new(0.0, 0.0, 1.0, 1.0),
+            label_color_x: Color::new(1.0, 0.0, 0.0, 1.0),
+            label_color_y: Color::new(0.0, 1.0, 0.0, 1.0),
+            label_color_z: Color::new(0.0, 0.0, 1.0, 1.0),
             axes_instance_buffer: InstanceBuffer::new(
                 create_instance_buffer(&Vec::new(), device, "Axes Instance Buffer"),
                 0,
@@ -196,24 +202,24 @@ impl CoordinateAxes {
             self.position
         };
 
-        let axix_x = Axis {
+        let axis_x = Axis {
             direction: Vec3::new(1.0, 0.0, 0.0),
-            color: Color::new(1.0, 0.0, 0.0, 1.0),
-            label_color: Color::new(1.0, 0.0, 0.0, 1.0),
+            color: self.color_x,
+            label_color: self.label_color_x,
             label: self.label_x.clone(),
         };
 
-        let axix_y = Axis {
+        let axis_y = Axis {
             direction: Vec3::new(0.0, 1.0, 0.0),
-            color: Color::new(0.0, 1.0, 0.0, 1.0),
-            label_color: Color::new(0.0, 1.0, 0.0, 1.0),
+            color: self.color_y,
+            label_color: self.label_color_y,
             label: self.label_y.clone(),
         };
 
-        let axix_z = Axis {
+        let axis_z = Axis {
             direction: Vec3::new(0.0, 0.0, 1.0),
-            color: Color::new(0.0, 0.0, 1.0, 1.0),
-            label_color: Color::new(0.0, 0.0, 1.0, 1.0),
+            color: self.color_z,
+            label_color: self.label_color_z,
             label: self.label_z.clone(),
         };
 
@@ -221,7 +227,7 @@ impl CoordinateAxes {
         let mut instance_data_cones = Vec::new();
         let mut instance_data_labels = Vec::new();
 
-        for axis in [&axix_x, &axix_y, &axix_z] {
+        for axis in [&axis_x, &axis_y, &axis_z] {
             instance_data_axes.push(axis.get_axis_instance_data(
                 position,
                 self.length,
@@ -268,12 +274,12 @@ impl CoordinateAxes {
     }
 
     pub fn set_length(&mut self, length: f32) {
-        self.length = length;
+        self.length = length.max(0.5);
         self.dirty = true;
     }
 
     pub fn set_thickness(&mut self, thickness: f32) {
-        self.thickness = thickness;
+        self.thickness = thickness.max(0.03);
         self.dirty = true;
     }
 
@@ -299,6 +305,36 @@ impl CoordinateAxes {
 
     pub fn set_labels_visible(&mut self, labels_visible: bool) {
         self.labels_visible = labels_visible;
+        self.dirty = true;
+    }
+
+    pub fn set_color(&mut self, axis: &str, color: Color) {
+        match axis {
+            "x" => self.color_x = color,
+            "y" => self.color_y = color,
+            "z" => self.color_z = color,
+            _ => return,
+        }
+        self.dirty = true;
+    }
+
+    pub fn set_label_color(&mut self, axis: &str, color: Color) {
+        match axis {
+            "x" => self.label_color_x = color,
+            "y" => self.label_color_y = color,
+            "z" => self.label_color_z = color,
+            _ => return,
+        }
+        self.dirty = true;
+    }
+
+    pub fn set_text(&mut self, axis: &str, text: String) {
+        match axis {
+            "x" => self.label_x = text,
+            "y" => self.label_y = text,
+            "z" => self.label_z = text,
+            _ => return,
+        }
         self.dirty = true;
     }
 

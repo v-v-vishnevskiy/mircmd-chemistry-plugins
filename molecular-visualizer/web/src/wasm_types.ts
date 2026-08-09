@@ -107,6 +107,25 @@ export interface MolecularVisualizerInstance {
   set_coordinate_axes_labels_visible(value: boolean): Promise<void>;
   set_coordinate_axes_both_directions(value: boolean): Promise<void>;
   set_coordinate_axes_use_origin(value: boolean): Promise<void>;
+  set_coordinate_axes_length(value: number): Promise<void>;
+  adjust_coordinate_axes_length(): Promise<void>;
+  set_coordinate_axes_thickness(value: number): Promise<void>;
+  set_coordinate_axes_labels_size(value: number): Promise<void>;
+  set_coordinate_axis_color(
+    axis: string,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+  ): Promise<void>;
+  set_coordinate_axis_label_color(
+    axis: string,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+  ): Promise<void>;
+  set_coordinate_axis_text(axis: string, text: string): Promise<void>;
   render(): void;
   // TODO: free(): void;
 }

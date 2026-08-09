@@ -246,6 +246,9 @@ impl MolecularVisualizer {
         let color_x = color_to_rgba(axes.color_x);
         let color_y = color_to_rgba(axes.color_y);
         let color_z = color_to_rgba(axes.color_z);
+        let label_color_x = color_to_rgba(axes.label_color_x);
+        let label_color_y = color_to_rgba(axes.label_color_y);
+        let label_color_z = color_to_rgba(axes.label_color_z);
         let style = &self.visualizer_config.style;
         let label = &style.atom_label;
         let bg = style.background_color;
@@ -275,9 +278,9 @@ impl MolecularVisualizer {
                 // Temporary mapping: runtime uses world-space labels_size; panel expects int font size.
                 (axes.labels_size * 100.0).round().max(1.0) as u32,
                 self.scene.has_molecule(),
-                CoordinateAxis::new(color_x, color_x, axes.label_x.clone()),
-                CoordinateAxis::new(color_y, color_y, axes.label_y.clone()),
-                CoordinateAxis::new(color_z, color_z, axes.label_z.clone()),
+                CoordinateAxis::new(color_x, label_color_x, axes.label_x.clone()),
+                CoordinateAxis::new(color_y, label_color_y, axes.label_y.clone()),
+                CoordinateAxis::new(color_z, label_color_z, axes.label_z.clone()),
             ),
             Appearance::new(color_to_rgba(bg), String::from("Default")),
         )
@@ -375,6 +378,67 @@ impl MolecularVisualizer {
     #[wasm_bindgen]
     pub async fn set_coordinate_axes_use_origin(&mut self, value: bool) {
         self.scene.coordinate_axes.set_use_origin(value);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_length(&mut self, value: f32) {
+        self.scene.coordinate_axes.set_length(value);
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn adjust_coordinate_axes_length(&mut self) {
+        let Some(max_coordinate) = self.scene.molecule_max_coordinate() else {
+            return;
+        };
+        self.scene.coordinate_axes.set_length(max_coordinate + 1.0);
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_thickness(&mut self, value: f32) {
+        self.scene.coordinate_axes.set_thickness(value);
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axes_labels_size(&mut self, value: f32) {
+        self.scene.coordinate_axes.set_labels_size(value);
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axis_color(&mut self, axis: String, r: f32, g: f32, b: f32, a: f32) {
+        self.scene.coordinate_axes.set_color(&axis, Color::new(r, g, b, a));
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axis_label_color(&mut self, axis: String, r: f32, g: f32, b: f32, a: f32) {
+        self.scene
+            .coordinate_axes
+            .set_label_color(&axis, Color::new(r, g, b, a));
+        self.scene.update_coordinate_axes(&self.device);
+        self.scene
+            .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
+    }
+
+    #[wasm_bindgen]
+    pub async fn set_coordinate_axis_text(&mut self, axis: String, text: String) {
+        self.scene.coordinate_axes.set_text(&axis, text);
+        self.scene.update_coordinate_axes(&self.device);
         self.scene
             .render(&self.surface, &self.device, &self.queue, &self.visualizer_config, 0);
     }

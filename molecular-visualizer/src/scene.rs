@@ -30,8 +30,12 @@ impl Scene {
         self.molecule.is_some()
     }
 
+    pub fn molecule_max_coordinate(&self) -> Option<f32> {
+        self.molecule.as_ref().map(|m| m.max_coordinate())
+    }
+
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, surface_config: &wgpu::SurfaceConfiguration) -> Self {
-        let font_atlas = FontAtlas::from_embedded_font(4096, 600.0, 3);
+        let font_atlas = FontAtlas::from_embedded_font(4096, 550.0, 3);
         let rect_vb = Self::create_font_atlas_vb(device);
 
         let coordinate_axes = CoordinateAxes::new(device);
@@ -481,60 +485,42 @@ impl Scene {
         if self.molecule.is_none() {
             return;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .set_atom_labels_symbol_visible(value);
+        self.molecule.as_mut().unwrap().set_atom_labels_symbol_visible(value);
     }
 
     pub fn set_atom_labels_number_visible(&mut self, value: bool) {
         if self.molecule.is_none() {
             return;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .set_atom_labels_number_visible(value);
+        self.molecule.as_mut().unwrap().set_atom_labels_number_visible(value);
     }
 
     pub fn set_all_atom_labels_visible(&mut self, value: bool) {
         if self.molecule.is_none() {
             return;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .set_all_atom_labels_visible(value);
+        self.molecule.as_mut().unwrap().set_all_atom_labels_visible(value);
     }
 
     pub fn set_selected_atom_labels_visible(&mut self, value: bool) {
         if self.molecule.is_none() {
             return;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .set_selected_atom_labels_visible(value);
+        self.molecule.as_mut().unwrap().set_selected_atom_labels_visible(value);
     }
 
     pub fn toggle_all_atom_labels_visible(&mut self) -> bool {
         if self.molecule.is_none() {
             return false;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .toggle_all_atom_labels_visible()
+        self.molecule.as_mut().unwrap().toggle_all_atom_labels_visible()
     }
 
     pub fn toggle_selected_atom_labels_visible(&mut self) {
         if self.molecule.is_none() {
             return;
         }
-        self.molecule
-            .as_mut()
-            .unwrap()
-            .toggle_selected_atom_labels_visible();
+        self.molecule.as_mut().unwrap().toggle_selected_atom_labels_visible();
     }
 
     pub fn update_atom_labels(&mut self, device: &wgpu::Device, config: &Config) {
@@ -545,5 +531,9 @@ impl Scene {
             .as_mut()
             .unwrap()
             .update_atom_labels(device, &self.font_atlas, config);
+    }
+
+    pub fn update_coordinate_axes(&mut self, device: &wgpu::Device) {
+        self.coordinate_axes.update(device, &self.font_atlas);
     }
 }

@@ -3,8 +3,8 @@
 
 /**
  * Coordinate axes control block.
- * Live WASM: Show / Labels / Both directions / Center.
- * Stub reactions: length, thickness, font size, colors, texts, adjust.
+ * Live WASM: Show / Labels / Both directions / Center / Length / Thickness /
+ * Font size / Adjust length / axis & label colors / label texts.
  */
 
 import {
@@ -22,6 +22,7 @@ import {
   AxesCommand,
   type MolecularVisualizerController,
 } from "../controller";
+import type { Rgba } from "../wasm_types";
 import { createForm, wrapFullWidth } from "./form_row";
 import { createSliderRow, type SliderRowControl } from "./slider_row";
 import styles from "./styles.css";
@@ -35,6 +36,22 @@ type AxisRow = {
   text: TextFieldControl;
   destroy(): void;
 };
+
+function hexToRgba(hex: string): [number, number, number, number] {
+  const raw = hex.replace("#", "");
+  const r = Number.parseInt(raw.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(raw.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(raw.slice(4, 6), 16) / 255;
+  return [r, g, b, 1];
+}
+
+function rgbaToHex(color: Rgba): string {
+  const toByte = (v: number) =>
+    Math.round(Math.min(1, Math.max(0, v)) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toByte(color.r)}${toByte(color.g)}${toByte(color.b)}`;
+}
 
 function createAxisRow(
   axis: AxisId,
@@ -54,18 +71,18 @@ function createAxisRow(
   const axisColorField = createColorField({
     value: axisColor,
     onChange: (color) => {
-      dispatch(AxesCommand.SetColor, { axis, color });
+      dispatch(AxesCommand.SetColor, { axis, color: hexToRgba(color) });
     },
   });
   const labelColorField = createColorField({
     value: labelColor,
     onChange: (color) => {
-      dispatch(AxesCommand.SetLabelColor, { axis, color });
+      dispatch(AxesCommand.SetLabelColor, { axis, color: hexToRgba(color) });
     },
   });
   const text = createTextField({
     value: textValue,
-    onChange: (value) => {
+    onInput: (value) => {
       dispatch(AxesCommand.SetText, { axis, text: value });
     },
   });
@@ -97,8 +114,13 @@ export function createCoordinateAxesBlock(
       surface.addStyles(controlsStyles);
       surface.addStyles(styles);
 
-      const stubDispatch = (type: string, payload: unknown) => {
-        if (context.signal.aborted) return;
+      let applying = false;
+      let disposed = false;
+
+      const initial = controller.getSnapshot().coordinate_axes;
+
+      const dispatchCmd = (type: string, payload: unknown) => {
+        if (applying || disposed || context.signal.aborted) return;
         void context.dispatch({ type, payload });
       };
 
@@ -117,42 +139,67 @@ export function createCoordinateAxesBlock(
       const sliderForm = createForm();
       const lengthRow = createSliderRow({
         label: "Length:",
-        value: 2,
+        value: initial.length,
         min: 0.5,
         max: 100,
         step: 0.1,
         decimals: 1,
         onChange: (value) => {
-          stubDispatch(AxesCommand.SetLength, { value });
+          if (applying || disposed || context.signal.aborted) return;
+          void context.dispatch({
+            type: AxesCommand.SetLength,
+            payload: { value },
+          });
         },
       });
       const thicknessRow = createSliderRow({
         label: "Thickness:",
-        value: 0.03,
+        value: initial.thickness,
         min: 0.03,
         max: 1,
         step: 0.01,
         decimals: 2,
         onChange: (value) => {
-          stubDispatch(AxesCommand.SetThickness, { value });
+          if (applying || disposed || context.signal.aborted) return;
+          void context.dispatch({
+            type: AxesCommand.SetThickness,
+            payload: { value },
+          });
         },
       });
       const fontSizeRow = createSliderRow({
         label: "Font size:",
-        value: 16,
+        value: initial.font_size,
         min: 16,
         max: 500,
         step: 1,
         decimals: 0,
         onChange: (value) => {
-          stubDispatch(AxesCommand.SetFontSize, { value });
+          if (applying || disposed || context.signal.aborted) return;
+          void context.dispatch({
+            type: AxesCommand.SetFontSize,
+            payload: { value },
+          });
         },
       });
 
       const adjust = createButton({
         label: "Adjust length",
         onClick: () => {
-          stubDispatch(AxesCommand.AdjustLength, {});
+          if (applying || disposed || context.signal.aborted) return;
+          void (async () => {
+            await context.dispatch({
+              type: AxesCommand.AdjustLength,
+              payload: {},
+            });
+            if (disposed || context.signal.aborted) return;
+            applying = true;
+            try {
+              lengthRow.setValue(controller.getSnapshot().coordinate_axes.length);
+            } finally {
+              applying = false;
+            }
+          })();
         },
       });
 
@@ -165,9 +212,30 @@ export function createCoordinateAxesBlock(
 
       const axesForm = createForm();
       axesForm.classList.add("cp-form-axes");
-      const axisX = createAxisRow("x", "Axis X:", "#ff0000", "#ff0000", "X", stubDispatch);
-      const axisY = createAxisRow("y", "Axis Y:", "#00ff00", "#00ff00", "Y", stubDispatch);
-      const axisZ = createAxisRow("z", "Axis Z:", "#0000ff", "#0000ff", "Z", stubDispatch);
+      const axisX = createAxisRow(
+        "x",
+        "Axis X:",
+        rgbaToHex(initial.x.color),
+        rgbaToHex(initial.x.label_color),
+        initial.x.label,
+        dispatchCmd,
+      );
+      const axisY = createAxisRow(
+        "y",
+        "Axis Y:",
+        rgbaToHex(initial.y.color),
+        rgbaToHex(initial.y.label_color),
+        initial.y.label,
+        dispatchCmd,
+      );
+      const axisZ = createAxisRow(
+        "z",
+        "Axis Z:",
+        rgbaToHex(initial.z.color),
+        rgbaToHex(initial.z.label_color),
+        initial.z.label,
+        dispatchCmd,
+      );
       axesForm.append(axisX.root, axisY.root, axisZ.root);
 
       const sliderRows: SliderRowControl[] = [lengthRow, thicknessRow, fontSizeRow];
@@ -179,12 +247,8 @@ export function createCoordinateAxesBlock(
       const dependentCheckboxes: CheckboxControl[] = [labels, both, center];
       const extraControls = [
         ...sliderRows,
-        adjust,
         ...axisRows.flatMap((row) => [row.axisColor, row.labelColor, row.text]),
       ];
-
-      let applying = false;
-      let disposed = false;
 
       const setExtrasEnabled = (enabled: boolean) => {
         for (const control of extraControls) {
@@ -207,6 +271,16 @@ export function createCoordinateAxesBlock(
             control.setDisabled(!axes.visible);
           }
           setExtrasEnabled(axes.visible);
+          adjust.setDisabled(!axes.visible || !axes.auto_adjust_available);
+          const byAxis = [
+            { row: axisX, state: axes.x },
+            { row: axisY, state: axes.y },
+            { row: axisZ, state: axes.z },
+          ];
+          for (const { row, state } of byAxis) {
+            row.axisColor.setValue(rgbaToHex(state.color));
+            row.labelColor.setValue(rgbaToHex(state.label_color));
+          }
         } finally {
           applying = false;
         }

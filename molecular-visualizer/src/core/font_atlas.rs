@@ -2,8 +2,7 @@ use ab_glyph::{Font, FontRef, Glyph, PxScale, ScaleFont};
 use std::collections::HashMap;
 
 const DEFAULT_CHAR: char = '?';
-const DEFAULT_ALPHABET: &str =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.,:;!?–-+±=/\\|#()[]{}<>*&$%^@~§'\"`";
+const DEFAULT_ALPHABET: &str = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.,:;!¡?¿—–-+±=≈≠/\\|#№()[]{}<≤≥>*÷&$%‰^ˆ@~§∑∏∫'\"`«»‹›∞√˚°•·";
 
 #[derive(Clone, Copy, Debug)]
 pub struct CharInfo {
@@ -63,14 +62,25 @@ impl FontAtlas {
 
         for ch in &chars {
             let glyph: Glyph = scaled_font.scaled_glyph(*ch);
-            if let Some(outlined) = scaled_font.outline_glyph(glyph.clone()) {
-                let bounds = outlined.px_bounds();
-                let char_width = (bounds.max.x - bounds.min.x).ceil() as u32;
+            // Whitespace has no outline, but it still needs a non-zero width
+            // so text layout can advance through its empty atlas region.
+            let advance_width = scaled_font.h_advance(glyph.id).ceil() as u32;
+            let outlined = scaled_font.outline_glyph(glyph);
+            let char_width = outlined
+                .as_ref()
+                .map(|glyph| {
+                    let bounds = glyph.px_bounds();
+                    (bounds.max.x - bounds.min.x).ceil() as u32
+                })
+                .unwrap_or(advance_width);
 
-                if x + char_width + padding > size {
-                    x = 0;
-                    y += max_height + padding;
-                }
+            if x + char_width + padding > size {
+                x = 0;
+                y += max_height + padding;
+            }
+
+            if let Some(outlined) = outlined {
+                let bounds = outlined.px_bounds();
 
                 // Vertical: align baseline across all glyphs (baseline is at row_y + max_ascent)
                 // The glyph's top (bounds.min.y) is at baseline + bounds.min.y
@@ -87,19 +97,19 @@ impl FontAtlas {
                         texture[idx] = (coverage * 255.0) as u8; // alpha
                     }
                 });
-
-                let char_info = CharInfo {
-                    width: char_width as f32,
-                    height: max_height as f32,
-                    u_min: x as f32 / size as f32,
-                    u_max: (x + char_width) as f32 / size as f32,
-                    v_min: 1.0 - ((y + max_height) as f32 / size as f32),
-                    v_max: 1.0 - (y as f32 / size as f32),
-                };
-
-                char_infos.insert(*ch, char_info);
-                x += char_width + padding;
             }
+
+            let char_info = CharInfo {
+                width: char_width as f32,
+                height: max_height as f32,
+                u_min: x as f32 / size as f32,
+                u_max: (x + char_width) as f32 / size as f32,
+                v_min: 1.0 - ((y + max_height) as f32 / size as f32),
+                v_max: 1.0 - (y as f32 / size as f32),
+            };
+
+            char_infos.insert(*ch, char_info);
+            x += char_width + padding;
         }
 
         let default_char_info = *char_infos

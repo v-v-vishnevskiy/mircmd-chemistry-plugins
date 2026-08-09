@@ -275,6 +275,14 @@ impl Molecule {
         true
     }
 
+    pub fn max_coordinate(&self) -> f32 {
+        self.atoms.iter().fold(0.0_f32, |acc, atom| {
+            acc.max(atom.position.x.abs())
+                .max(atom.position.y.abs())
+                .max(atom.position.z.abs())
+        })
+    }
+
     pub fn set_atom_labels_symbol_visible(&mut self, value: bool) {
         for atom in &mut self.atoms {
             atom.symbol_visible = value;

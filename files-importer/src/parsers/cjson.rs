@@ -4,9 +4,8 @@
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
-    Ok(cjson_coords(&content).is_some())
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(cjson_coords(content).is_some())
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

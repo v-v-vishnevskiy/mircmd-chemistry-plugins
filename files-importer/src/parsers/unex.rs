@@ -1,16 +1,10 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
 // Licensed under the Apache 2.0 License
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-
 use regex::Regex;
 
 use shared_lib::periodic_table::get_element_by_symbol;
 use shared_lib::types::{AtomicCoordinates, Node};
-
-const MAX_VALIDATION_LINES: usize = 1;
 
 #[derive(PartialEq)]
 enum Unex2XyzFormat {
@@ -38,22 +32,11 @@ fn get_format_version(line: &str) -> Option<i32> {
 }
 
 /// Validates if the file is in UNEX format.
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-
-    let lines: Vec<String> = reader
-        .lines()
-        .take(MAX_VALIDATION_LINES)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    if lines.is_empty() {
+pub fn test(content: &str) -> Result<bool, String> {
+    let Some(first) = content.lines().next() else {
         return Ok(false);
-    }
-
-    Ok(get_format_version(&lines[0]).is_some())
+    };
+    Ok(get_format_version(first).is_some())
 }
 
 /// Parses UNEX 1.x format.

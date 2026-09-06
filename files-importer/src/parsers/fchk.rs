@@ -1,24 +1,14 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
 // Licensed under the Apache 2.0 License
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let file = File::open(file_path).map_err(|e| e.to_string())?;
-    for (index, line) in BufReader::new(file).lines().enumerate() {
-        if index >= 30 {
-            break;
-        }
-        let line = line.map_err(|e| e.to_string())?;
-        if line.starts_with("Number of atoms") && line.contains(" I") {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(content
+        .lines()
+        .take(30)
+        .any(|line| line.starts_with("Number of atoms") && line.contains(" I")))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

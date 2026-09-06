@@ -4,8 +4,8 @@
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    qc::file_has_signature(file_path, &["Amsterdam Density Functional"])
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(qc::content_has_signature(content, &["Amsterdam Density Functional"]))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

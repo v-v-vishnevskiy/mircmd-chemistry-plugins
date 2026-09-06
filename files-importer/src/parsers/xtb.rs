@@ -4,8 +4,11 @@
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    qc::file_has_signature(file_path, &["x  T  B", "x T B", "xtb version", "* xtb version"])
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(qc::content_has_signature(
+        content,
+        &["x  T  B", "x T B", "xtb version", "* xtb version"],
+    ))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
@@ -25,7 +28,7 @@ pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {
         }
         if line.contains("final structure:") {
             skip_xtb_header(&mut lines);
-            geometry.push_frame(read_xtb_xyz(&mut lines));
+            geometry.push_frame(read_xtb_structure(&mut lines));
         }
     }
 
@@ -49,6 +52,43 @@ fn skip_xtb_header<'a, I: Iterator<Item = &'a str>>(lines: &mut std::iter::Peeka
         }
         break;
     }
+}
+
+fn read_xtb_structure<'a, I: Iterator<Item = &'a str>>(lines: &mut std::iter::Peekable<I>) -> CoordFrame {
+    if lines
+        .peek()
+        .map(|line| line.trim().starts_with("$coord"))
+        .unwrap_or(false)
+    {
+        lines.next();
+        return read_coord_bohr(lines);
+    }
+    read_xtb_xyz(lines)
+}
+
+fn read_coord_bohr<'a, I: Iterator<Item = &'a str>>(lines: &mut std::iter::Peekable<I>) -> CoordFrame {
+    let mut frame = CoordFrame::default();
+    while let Some(line) = lines.peek().copied() {
+        if line.trim().starts_with('$') {
+            break;
+        }
+        lines.next();
+        if let Some((atomic_num, x, y, z)) = parse_coord_bohr(line) {
+            frame.push(atomic_num, x, y, z);
+        }
+    }
+    frame
+}
+
+fn parse_coord_bohr(line: &str) -> Option<(i32, f64, f64, f64)> {
+    let items: Vec<&str> = line.split_whitespace().collect();
+    let (atomic_num, x, y, z) = qc::atom_from_columns(&items, 3, 0)?;
+    Some((
+        atomic_num,
+        qc::bohr_to_angstrom(x),
+        qc::bohr_to_angstrom(y),
+        qc::bohr_to_angstrom(z),
+    ))
 }
 
 fn read_xtb_xyz<'a, I: Iterator<Item = &'a str>>(lines: &mut std::iter::Peekable<I>) -> CoordFrame {

@@ -62,7 +62,7 @@ impl Guest for ChemistryImporter {
         let mut errors: Vec<String> = Vec::new();
 
         for (name, test_fn, parse_fn) in PARSERS {
-            match test_fn(&file_path) {
+            match test_fn(&content) {
                 Ok(true) => match parse_fn(&content, file_name) {
                     Ok(node) => {
                         return serde_json::to_vec(&node).map_err(|e| format!("Failed to serialize result: {}", e));

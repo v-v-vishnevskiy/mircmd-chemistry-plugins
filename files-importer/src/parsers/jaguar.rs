@@ -4,8 +4,8 @@
 use super::qc::{self, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    qc::file_has_signature(file_path, &["Jaguar version"])
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(qc::content_has_signature(content, &["Jaguar version"]))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

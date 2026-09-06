@@ -4,9 +4,9 @@
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let has_data = qc::file_has_signature_n(file_path, 40, &["$DATA", "$data"])?;
-    let has_log = qc::file_has_signature(file_path, &["GAMESS VERSION", "Firefly (PC GAMESS)"])?;
+pub fn test(content: &str) -> Result<bool, String> {
+    let has_data = qc::content_has_signature_n(content, 40, &["$DATA", "$data"]);
+    let has_log = qc::content_has_signature(content, &["GAMESS VERSION", "Firefly (PC GAMESS)"]);
     Ok(has_data && !has_log)
 }
 

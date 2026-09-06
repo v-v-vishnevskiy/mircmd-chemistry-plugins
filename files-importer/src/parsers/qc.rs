@@ -1,8 +1,6 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
 // Licensed under the Apache 2.0 License
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::iter::Peekable;
 
 use shared_lib::periodic_table::get_element_by_symbol;
@@ -55,22 +53,15 @@ impl QcGeometry {
     }
 }
 
-pub fn file_has_signature(path: &str, needles: &[&str]) -> Result<bool, String> {
-    file_has_signature_n(path, MAX_SIGNATURE_LINES, needles)
+pub fn content_has_signature(content: &str, needles: &[&str]) -> bool {
+    content_has_signature_n(content, MAX_SIGNATURE_LINES, needles)
 }
 
-pub fn file_has_signature_n(path: &str, max_lines: usize, needles: &[&str]) -> Result<bool, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    for (index, line) in BufReader::new(file).lines().enumerate() {
-        if index >= max_lines {
-            break;
-        }
-        let line = line.map_err(|e| e.to_string())?;
-        if needles.iter().any(|needle| line.contains(needle)) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+pub fn content_has_signature_n(content: &str, max_lines: usize, needles: &[&str]) -> bool {
+    content
+        .lines()
+        .take(max_lines)
+        .any(|line| needles.iter().any(|needle| line.contains(*needle)))
 }
 
 pub fn skip<'a, I: Iterator<Item = &'a str>>(lines: &mut I, count: usize) {

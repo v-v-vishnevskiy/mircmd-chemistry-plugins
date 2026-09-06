@@ -1,10 +1,6 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
 // Licensed under the Apache 2.0 License
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-
 use shared_lib::periodic_table::get_element_by_symbol;
 use shared_lib::types::{AtomicCoordinates, Molecule, Node};
 
@@ -18,23 +14,11 @@ enum ParserState {
 }
 
 /// Validates if the file is in MDL Mol V2000 format.
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-
-    let lines: Vec<String> = reader
-        .lines()
-        .take(MAX_VALIDATION_LINES)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    // Need at least 4 lines
+pub fn test(content: &str) -> Result<bool, String> {
+    let lines: Vec<&str> = content.lines().take(MAX_VALIDATION_LINES).collect();
     if lines.len() < 4 {
         return Ok(false);
     }
-
-    // Line 4 (index 3) must contain " V2000"
     Ok(lines[3].contains(" V2000"))
 }
 

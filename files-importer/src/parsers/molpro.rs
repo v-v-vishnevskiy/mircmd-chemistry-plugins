@@ -4,8 +4,8 @@
 use super::qc::{self, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    qc::file_has_signature(file_path, &["PROGRAM SYSTEM MOLPRO"])
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(qc::content_has_signature(content, &["PROGRAM SYSTEM MOLPRO"]))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

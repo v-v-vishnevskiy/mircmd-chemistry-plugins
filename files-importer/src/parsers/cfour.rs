@@ -1,10 +1,6 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
 // Licensed under the Apache 2.0 License
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-
 use shared_lib::types::{AtomicCoordinates, Molecule, Node};
 
 const MAX_VALIDATION_LINES: usize = 20;
@@ -13,25 +9,12 @@ const BOHR2ANGSTROM: f64 = 0.529177210903;
 const CFOUR_SIGNATURE: &str = "<<<     CCCCCC     CCCCCC   |||     CCCCCC     CCCCCC   >>>";
 
 /// Validates if the file is in Cfour log format.
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-
-    let lines: Vec<String> = reader
+pub fn test(content: &str) -> Result<bool, String> {
+    Ok(content
         .lines()
         .take(MAX_VALIDATION_LINES)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    // Check if any line (except the first) contains the Cfour signature
-    for line in lines.iter().skip(1) {
-        if line.contains(CFOUR_SIGNATURE) {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
+        .skip(1)
+        .any(|line| line.contains(CFOUR_SIGNATURE)))
 }
 
 /// Parses a Cfour log file.

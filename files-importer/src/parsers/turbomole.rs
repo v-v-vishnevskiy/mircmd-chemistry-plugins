@@ -4,11 +4,11 @@
 use super::qc::{self, CoordFrame, QcGeometry};
 use shared_lib::types::Node;
 
-pub fn test(file_path: &str) -> Result<bool, String> {
-    if qc::file_has_signature(file_path, &["TURBOMOLE"])? {
+pub fn test(content: &str) -> Result<bool, String> {
+    if qc::content_has_signature(content, &["TURBOMOLE"]) {
         return Ok(true);
     }
-    qc::file_has_signature_n(file_path, 20, &["$coord"])
+    Ok(qc::content_has_signature_n(content, 20, &["$coord"]))
 }
 
 pub fn parse(content: &str, file_name: &str) -> Result<Node, String> {

@@ -6,4 +6,4 @@ metadata:
   name: Chemistry Files Importer
   version: 1.0.0
   publisher: mircmd
-  description: Imports files as XYZ, UNEX, MDL Mol V2000 and Cfour
+  description: Imports XYZ, Cube, UNEX, CFOUR, MDL Mol V2000 and QC log coordinates

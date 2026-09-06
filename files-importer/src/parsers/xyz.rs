@@ -1,9 +1,5 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
-// Licensed under the MIT License
-
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+// Licensed under the Apache 2.0 License
 
 use regex::Regex;
 
@@ -21,16 +17,8 @@ const MAX_VALIDATION_LINES: usize = 10;
 
 /// Validates if the file is in XYZ format by reading only first few lines.
 /// Returns true if the file appears to be a valid XYZ file, false otherwise.
-pub fn test(file_path: &str) -> Result<bool, String> {
-    let path = Path::new(file_path);
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-
-    let lines: Vec<String> = reader
-        .lines()
-        .take(MAX_VALIDATION_LINES)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+pub fn test(content: &str) -> Result<bool, String> {
+    let lines: Vec<&str> = content.lines().take(MAX_VALIDATION_LINES).collect();
 
     if lines.is_empty() {
         return Ok(false);

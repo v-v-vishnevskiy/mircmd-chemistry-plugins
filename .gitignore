@@ -1,5 +1,8 @@
 .DS_Store
+
 .idea
+.vscode
+.zed
 
 tmp/
 target/
@@ -7,4 +10,3 @@ dist/
 node_modules/
 pkg/
 */src/bindings.rs
-tmp/

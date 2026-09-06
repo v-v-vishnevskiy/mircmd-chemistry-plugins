@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
-// Licensed under the MIT License
+// Licensed under the Apache 2.0 License
 
 import { get_element_by_number } from './periodic_table';
-import type { ProgramPluginContext } from './program_context';
+import type { ProgramPluginContext, ProgramSession } from './program_context';
 import styles from './style.css';
 import type { AtomicCoordinates } from './types';
+import { CartesianEditorSession } from './session';
 
 const ROW_HEIGHT = 28;
 const CELL_PADDING = 4;
@@ -23,18 +24,25 @@ interface VirtualTableConfig {
     };
     row_height: number;
     scroll_buffer: number;
+    decimals: number;
 }
 
 function supportedTypes(): string[] {
     return ['mircmd:chemistry:atomic_coordinates'];
 }
 
-function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Array): void {
+function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Array): ProgramSession {
+    void node_type;
     const parsed = parse_coords(data);
     clear_root(ctx.root);
     if (!parsed.ok) {
         render_error(ctx.root, parsed.error);
-        return;
+        return {
+            execute: async () => {},
+            dispose: async () => {
+                clear_root(ctx.root);
+            },
+        };
     }
 
     const symbols = get_symbols(parsed.value);
@@ -45,11 +53,23 @@ function run(ctx: ProgramPluginContext, node_type: string, data: Uint8Array): vo
         data: { symbols, x: parsed.value.x, y: parsed.value.y, z: parsed.value.z },
         row_height: ROW_HEIGHT,
         scroll_buffer: SCROLL_BUFFER,
+        decimals: 6,
     };
 
     const container = create_table_container();
     ctx.root.appendChild(container);
-    init_virtual_table(container, config);
+    const table = init_virtual_table(container, config);
+
+    return new CartesianEditorSession(
+        (decimals) => {
+            config.decimals = decimals;
+            table.rerender();
+        },
+        () => {
+            table.destroy();
+            clear_root(ctx.root);
+        },
+    );
 }
 
 function parse_coords(data: Uint8Array):
@@ -135,8 +155,13 @@ function create_body(): HTMLDivElement {
     return body;
 }
 
-function init_virtual_table(container: HTMLElement, config: VirtualTableConfig): void {
-    if (container.dataset.vtInitialized) return;
+function init_virtual_table(
+    container: HTMLElement,
+    config: VirtualTableConfig,
+): { rerender: () => void; destroy: () => void } {
+    if (container.dataset.vtInitialized) {
+        return { rerender: () => {}, destroy: () => {} };
+    }
     container.dataset.vtInitialized = 'true';
     const body = require_element(container, '.vt-body');
     const viewport = require_element(container, '.vt-viewport');
@@ -144,9 +169,36 @@ function init_virtual_table(container: HTMLElement, config: VirtualTableConfig):
     prepare_viewport(body, header, viewport, config);
     const state = create_render_state();
     const render = () => render_visible_rows(body, viewport, config, state);
-    attach_scroll_handler(body, header, render);
+    const onScroll = () => {
+        header.style.transform = `translateX(-${body.scrollLeft}px)`;
+        render();
+    };
+    body.addEventListener('scroll', onScroll, { passive: true });
     render();
-    attach_edit_handler(viewport);
+    const onDblClick = (event: Event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const cell = target.closest('.vt-cell');
+        if (!cell || cell.classList.contains('editing')) return;
+        start_cell_editing(cell);
+    };
+    viewport.addEventListener('dblclick', onDblClick);
+
+    return {
+        rerender: () => {
+            for (const row of state.row_cache.values()) {
+                row.remove();
+            }
+            state.row_cache.clear();
+            state.visible_start = -1;
+            state.visible_end = -1;
+            render();
+        },
+        destroy: () => {
+            body.removeEventListener('scroll', onScroll);
+            viewport.removeEventListener('dblclick', onDblClick);
+        },
+    };
 }
 
 function require_element<T extends HTMLElement>(container: Element, selector: string): T {
@@ -177,21 +229,6 @@ interface RenderState {
 
 function create_render_state(): RenderState {
     return { row_cache: new Map(), visible_start: -1, visible_end: -1 };
-}
-
-function attach_scroll_handler(
-    body: HTMLElement,
-    header: HTMLElement,
-    render: () => void,
-): void {
-    body.addEventListener(
-        'scroll',
-        () => {
-            header.style.transform = `translateX(-${body.scrollLeft}px)`;
-            render();
-        },
-        { passive: true },
-    );
 }
 
 function render_visible_rows(
@@ -251,23 +288,14 @@ function build_row(index: number, config: VirtualTableConfig): HTMLDivElement {
     const row = document.createElement('div');
     row.className = 'vt-row';
     row.style.top = `${index * config.row_height}px`;
+    const digits = config.decimals;
     row.innerHTML =
         `<div class="vt-cell col-tag">${index + 1}</div>` +
         `<div class="vt-cell col-symbol">${config.data.symbols[index]}</div>` +
-        `<div class="vt-cell col-coord">${config.data.x[index].toFixed(6)}</div>` +
-        `<div class="vt-cell col-coord">${config.data.y[index].toFixed(6)}</div>` +
-        `<div class="vt-cell col-coord">${config.data.z[index].toFixed(6)}</div>`;
+        `<div class="vt-cell col-coord">${config.data.x[index].toFixed(digits)}</div>` +
+        `<div class="vt-cell col-coord">${config.data.y[index].toFixed(digits)}</div>` +
+        `<div class="vt-cell col-coord">${config.data.z[index].toFixed(digits)}</div>`;
     return row;
-}
-
-function attach_edit_handler(viewport: HTMLElement): void {
-    viewport.addEventListener('dblclick', (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        const cell = target.closest('.vt-cell');
-        if (!cell || cell.classList.contains('editing')) return;
-        start_cell_editing(cell);
-    });
 }
 
 function start_cell_editing(cell: Element): void {
@@ -313,7 +341,7 @@ function handle_edit_key(
 
 // Export instantiate function compatible with current plugin loader
 export function instantiate(): {
-    run: (ctx: ProgramPluginContext, node_type: string, data: Uint8Array) => void;
+    run: (ctx: ProgramPluginContext, node_type: string, data: Uint8Array) => ProgramSession;
     supportedTypes: () => string[];
 } {
     return { run, supportedTypes };

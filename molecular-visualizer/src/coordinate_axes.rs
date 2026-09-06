@@ -86,7 +86,7 @@ impl Axis {
 
         let mut data = Vec::new();
 
-        let gap = 0.2;
+        let gap = 0.15;
         let mut total_width = 0.0;
         let mut chars_info = Vec::with_capacity(self.label.len());
 
@@ -121,6 +121,7 @@ impl Axis {
 
 pub struct CoordinateAxes {
     pub position: Vec3<f32>,
+    pub use_origin: bool,
     pub visible: bool,
     pub length: f32,
     pub thickness: f32,
@@ -130,92 +131,142 @@ pub struct CoordinateAxes {
     pub labels_size: f32,
     pub labels_visible: bool,
 
+    pub label_x: String,
+    pub label_y: String,
+    pub label_z: String,
+    pub color_x: Color,
+    pub color_y: Color,
+    pub color_z: Color,
+    pub label_color_x: Color,
+    pub label_color_y: Color,
+    pub label_color_z: Color,
+
     cube_vb: VertexBuffer,
     cone_vb: VertexBuffer,
-    axix_x: Axis,
-    axix_y: Axis,
-    axix_z: Axis,
 
     axes_instance_buffer: InstanceBuffer,
     cones_instance_buffer: InstanceBuffer,
     labels_instance_buffer: InstanceBuffer,
+
+    dirty: bool,
 }
 
 impl CoordinateAxes {
-    pub fn new(device: &wgpu::Device, position: Vec3<f32>, visible: bool, font_atlas: &super::core::FontAtlas) -> Self {
-        let length = 2.0;
-        let thickness = 0.03;
-        let both_directions = false;
-        let cone_length_factor = 6.0;
-        let cone_radius_factor = 2.0;
-        let labels_size = 0.16;
-        let labels_visible = true;
+    pub fn new(device: &wgpu::Device) -> Self {
+        Self {
+            cube_vb: VertexBuffer::new(device, &mesh_objects::cube::create(2.0)),
+            cone_vb: VertexBuffer::new(device, &mesh_objects::cone::create(1.0, 1.0, 30)),
+            position: Vec3::new(0.0, 0.0, 0.0),
+            use_origin: false,
+            visible: false,
+            length: 2.0,
+            thickness: 0.03,
+            both_directions: false,
+            cone_radius_factor: 2.0,
+            cone_length_factor: 6.0,
+            labels_size: 0.16,
+            labels_visible: true,
+            label_x: String::from("X"),
+            label_y: String::from("Y"),
+            label_z: String::from("Z"),
+            color_x: Color::new(1.0, 0.0, 0.0, 1.0),
+            color_y: Color::new(0.0, 1.0, 0.0, 1.0),
+            color_z: Color::new(0.0, 0.0, 1.0, 1.0),
+            label_color_x: Color::new(1.0, 0.0, 0.0, 1.0),
+            label_color_y: Color::new(0.0, 1.0, 0.0, 1.0),
+            label_color_z: Color::new(0.0, 0.0, 1.0, 1.0),
+            axes_instance_buffer: InstanceBuffer::new(
+                create_instance_buffer(&Vec::new(), device, "Axes Instance Buffer"),
+                0,
+            ),
+            cones_instance_buffer: InstanceBuffer::new(
+                create_instance_buffer(&Vec::new(), device, "Cones Instance Buffer"),
+                0,
+            ),
+            labels_instance_buffer: InstanceBuffer::new(
+                create_char_instance_buffer(&Vec::new(), device, "Labels Instance Buffer"),
+                0,
+            ),
+            dirty: true,
+        }
+    }
 
-        let axix_x = Axis {
+    pub fn update(&mut self, device: &wgpu::Device, font_atlas: &super::core::FontAtlas) {
+        if !self.dirty {
+            return;
+        }
+
+        let position = if self.use_origin {
+            Vec3::new(0.0, 0.0, 0.0)
+        } else {
+            self.position
+        };
+
+        let axis_x = Axis {
             direction: Vec3::new(1.0, 0.0, 0.0),
-            color: Color::new(1.0, 0.0, 0.0, 1.0),
-            label_color: Color::new(1.0, 0.0, 0.0, 1.0),
-            label: String::from("X"),
+            color: self.color_x,
+            label_color: self.label_color_x,
+            label: self.label_x.clone(),
         };
 
-        let axix_y = Axis {
+        let axis_y = Axis {
             direction: Vec3::new(0.0, 1.0, 0.0),
-            color: Color::new(0.0, 1.0, 0.0, 1.0),
-            label_color: Color::new(0.0, 1.0, 0.0, 1.0),
-            label: String::from("Y"),
+            color: self.color_y,
+            label_color: self.label_color_y,
+            label: self.label_y.clone(),
         };
 
-        let axix_z = Axis {
+        let axis_z = Axis {
             direction: Vec3::new(0.0, 0.0, 1.0),
-            color: Color::new(0.0, 0.0, 1.0, 1.0),
-            label_color: Color::new(0.0, 0.0, 1.0, 1.0),
-            label: String::from("Z"),
+            color: self.color_z,
+            label_color: self.label_color_z,
+            label: self.label_z.clone(),
         };
 
         let mut instance_data_axes = Vec::new();
         let mut instance_data_cones = Vec::new();
         let mut instance_data_labels = Vec::new();
 
-        for axis in [&axix_x, &axix_y, &axix_z] {
-            instance_data_axes.push(axis.get_axis_instance_data(position, length, thickness, both_directions));
+        for axis in [&axis_x, &axis_y, &axis_z] {
+            instance_data_axes.push(axis.get_axis_instance_data(
+                position,
+                self.length,
+                self.thickness,
+                self.both_directions,
+            ));
             instance_data_cones.push(axis.get_cone_instance_data(
                 position,
-                length,
-                cone_length_factor * thickness,
-                cone_radius_factor * thickness,
+                self.length,
+                self.cone_length_factor * self.thickness,
+                self.cone_radius_factor * self.thickness,
             ));
-            let pos = axis.direction * length + axis.direction * thickness * cone_length_factor * 2.0;
-            instance_data_labels.append(&mut axis.get_label_instance_data(pos + position, labels_size, font_atlas));
+            let pos = axis.direction * self.length + axis.direction * self.thickness * self.cone_length_factor * 2.0;
+            instance_data_labels.append(&mut axis.get_label_instance_data(
+                pos + position,
+                self.labels_size,
+                font_atlas,
+            ));
         }
 
-        let axes_instance_buffer = create_instance_buffer(&instance_data_axes, device, "Axes Instance Buffer");
-        let cones_instance_buffer = create_instance_buffer(&instance_data_cones, device, "Cones Instance Buffer");
-        let labels_instance_buffer =
-            create_char_instance_buffer(&instance_data_labels, device, "Labels Instance Buffer");
+        let axes_wgpu_buffer = create_instance_buffer(&instance_data_axes, device, "Axes Instance Buffer");
+        let cones_wgpu_buffer = create_instance_buffer(&instance_data_cones, device, "Cones Instance Buffer");
+        let labels_wgpu_buffer = create_char_instance_buffer(&instance_data_labels, device, "Labels Instance Buffer");
 
-        Self {
-            cube_vb: VertexBuffer::new(device, &mesh_objects::cube::create(2.0)),
-            cone_vb: VertexBuffer::new(device, &mesh_objects::cone::create(1.0, 1.0, 30)),
-            position,
-            visible,
-            length,
-            thickness,
-            both_directions,
-            cone_radius_factor,
-            cone_length_factor,
-            labels_size,
-            labels_visible,
-            axix_x,
-            axix_y,
-            axix_z,
-            axes_instance_buffer: InstanceBuffer::new(axes_instance_buffer, instance_data_axes.len()),
-            cones_instance_buffer: InstanceBuffer::new(cones_instance_buffer, instance_data_cones.len()),
-            labels_instance_buffer: InstanceBuffer::new(labels_instance_buffer, instance_data_labels.len()),
-        }
+        self.axes_instance_buffer = InstanceBuffer::new(axes_wgpu_buffer, instance_data_axes.len());
+        self.cones_instance_buffer = InstanceBuffer::new(cones_wgpu_buffer, instance_data_cones.len());
+        self.labels_instance_buffer = InstanceBuffer::new(labels_wgpu_buffer, instance_data_labels.len());
+
+        self.dirty = false;
     }
 
     pub fn set_position(&mut self, position: Vec3<f32>) {
         self.position = position;
+        self.dirty = true;
+    }
+
+    pub fn set_use_origin(&mut self, value: bool) {
+        self.use_origin = value;
+        self.dirty = true;
     }
 
     pub fn set_visible(&mut self, visible: bool) {
@@ -223,31 +274,68 @@ impl CoordinateAxes {
     }
 
     pub fn set_length(&mut self, length: f32) {
-        self.length = length;
+        self.length = length.max(0.5);
+        self.dirty = true;
     }
 
     pub fn set_thickness(&mut self, thickness: f32) {
-        self.thickness = thickness;
+        self.thickness = thickness.max(0.03);
+        self.dirty = true;
     }
 
     pub fn set_both_directions(&mut self, both_directions: bool) {
         self.both_directions = both_directions;
+        self.dirty = true;
     }
 
     pub fn set_cone_radius_factor(&mut self, cone_radius_factor: f32) {
         self.cone_radius_factor = cone_radius_factor;
+        self.dirty = true;
     }
 
     pub fn set_cone_length_factor(&mut self, cone_length_factor: f32) {
         self.cone_length_factor = cone_length_factor;
+        self.dirty = true;
     }
 
     pub fn set_labels_size(&mut self, labels_size: f32) {
         self.labels_size = labels_size;
+        self.dirty = true;
     }
 
     pub fn set_labels_visible(&mut self, labels_visible: bool) {
         self.labels_visible = labels_visible;
+        self.dirty = true;
+    }
+
+    pub fn set_color(&mut self, axis: &str, color: Color) {
+        match axis {
+            "x" => self.color_x = color,
+            "y" => self.color_y = color,
+            "z" => self.color_z = color,
+            _ => return,
+        }
+        self.dirty = true;
+    }
+
+    pub fn set_label_color(&mut self, axis: &str, color: Color) {
+        match axis {
+            "x" => self.label_color_x = color,
+            "y" => self.label_color_y = color,
+            "z" => self.label_color_z = color,
+            _ => return,
+        }
+        self.dirty = true;
+    }
+
+    pub fn set_text(&mut self, axis: &str, text: String) {
+        match axis {
+            "x" => self.label_x = text,
+            "y" => self.label_y = text,
+            "z" => self.label_z = text,
+            _ => return,
+        }
+        self.dirty = true;
     }
 
     pub fn render_axes(&self, render_pass: &mut wgpu::RenderPass) {

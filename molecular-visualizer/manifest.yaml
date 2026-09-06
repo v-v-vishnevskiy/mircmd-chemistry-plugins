@@ -1,5 +1,6 @@
-target: Ui
-type: Program
+target: ui
+type: program
+protocol: v1
 metadata:
   id: chemistry-molecular-visualizer
   name: Chemistry Molecular Visualizer

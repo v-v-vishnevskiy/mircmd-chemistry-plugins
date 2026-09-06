@@ -40,6 +40,7 @@ pub struct Atom {
     pub visible: bool,
     pub highlighted: bool,
     pub selected: bool,
+    pub label_visible: bool,
     pub symbol_visible: bool,
     pub number_visible: bool,
 }
@@ -54,6 +55,7 @@ impl Atom {
         picking_color: Color,
         bounding_sphere_color: Color,
         bounding_sphere_scale_factor: f32,
+        label_visible: bool,
         symbol_visible: bool,
         number_visible: bool,
     ) -> Self {
@@ -69,6 +71,7 @@ impl Atom {
             visible: true,
             highlighted: false,
             selected: false,
+            label_visible,
             symbol_visible,
             number_visible,
         }
@@ -111,7 +114,13 @@ impl Atom {
         }
     }
 
-    pub fn get_label_instance_data(&self, color: Color, size: f32, offset: f32, font_atlas: &super::core::FontAtlas) -> Vec<(char, CharInstanceData)> {
+    pub fn get_label_instance_data(
+        &self,
+        color: Color,
+        size: f32,
+        offset: f32,
+        font_atlas: &super::core::FontAtlas,
+    ) -> Vec<(char, CharInstanceData)> {
         let mut transform: Mat4<f32> = Mat4::new();
 
         transform.translate(self.position);
@@ -132,14 +141,14 @@ impl Atom {
         let gap = 0.2;
         let mut total_width = 0.0;
         let mut chars_info = Vec::with_capacity(text.len());
-        
+
         for c in text.chars() {
             let info = *font_atlas.get_char_info(c);
             let char_width = (info.width / info.height) * 2.0;
             chars_info.push((c, info, char_width));
             total_width += char_width + gap;
         }
-        
+
         if total_width > 0.0 {
             total_width -= gap;
         }

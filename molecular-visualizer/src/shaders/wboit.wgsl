@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Valery Vishnevskiy and Yury Vishnevskiy
+// Licensed under the Apache 2.0 License
+
 // Weighted Blended Order-Independent Transparency (WBOIT) Composite Shader
 // Based on: McGuire and Bavoil, "Weighted Blended Order-Independent Transparency"
 

@@ -562,18 +562,28 @@ fn generate_triangles(
 }
 
 pub fn isosurface(scalar_field: &[Vec<Vec<f64>>], shape: (usize, usize, usize), value: f64, factor: f64) -> Mesh {
+    let (nx, ny, nz) = field_shape(scalar_field, shape);
+    if nx < 2 || ny < 2 || nz < 2 {
+        return Mesh {
+            vertices: Vec::new(),
+            indices: Vec::new(),
+            num_indices: 0,
+        };
+    }
+
     let mut vertices = Vec::with_capacity(16384);
     let mut indices = Vec::with_capacity(16384);
+    let dims = (nx, ny, nz);
 
-    for i in 0..(shape.0 - 1) {
+    for i in 0..(nx - 1) {
         let slice_i = &scalar_field[i];
         let slice_ip1 = &scalar_field[i + 1];
-        for j in 0..(shape.1 - 1) {
+        for j in 0..(ny - 1) {
             let row_ij = &slice_i[j];
             let row_ijp1 = &slice_i[j + 1];
             let row_ip1j = &slice_ip1[j];
             let row_ip1jp1 = &slice_ip1[j + 1];
-            for k in 0..(shape.2 - 1) {
+            for k in 0..(nz - 1) {
                 let v000 = row_ij[k] * factor;
                 let v100 = row_ip1j[k] * factor;
                 let v110 = row_ip1jp1[k] * factor;
@@ -621,7 +631,7 @@ pub fn isosurface(scalar_field: &[Vec<Vec<f64>>], shape: (usize, usize, usize), 
                     j,
                     k,
                     scalar_field,
-                    shape,
+                    dims,
                     value,
                     factor,
                     cube_index,
@@ -640,4 +650,16 @@ pub fn isosurface(scalar_field: &[Vec<Vec<f64>>], shape: (usize, usize, usize), 
         indices,
         num_indices,
     }
+}
+
+fn field_shape(scalar_field: &[Vec<Vec<f64>>], shape: (usize, usize, usize)) -> (usize, usize, usize) {
+    let nx = scalar_field.len().min(shape.0);
+    let ny = scalar_field.first().map(|plane| plane.len()).unwrap_or(0).min(shape.1);
+    let nz = scalar_field
+        .first()
+        .and_then(|plane| plane.first())
+        .map(|row| row.len())
+        .unwrap_or(0)
+        .min(shape.2);
+    (nx, ny, nz)
 }

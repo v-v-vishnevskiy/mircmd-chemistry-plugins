@@ -7,6 +7,10 @@
     "build": "esbuild src/plugin.ts --bundle --format=esm --outfile=dist/plugin.js --minify --loader:.css=text",
     "watch": "esbuild src/plugin.ts --bundle --format=esm --outfile=dist/plugin.js --watch --loader:.css=text"
   },
+  "dependencies": {
+    "@mircmd/extensions-api": "file:../../../mircmd-extensions-api",
+    "@mircmd/ui-controls": "file:../../../mircmd-ui-controls"
+  },
   "devDependencies": {
     "esbuild": "^0.24.2",
     "typescript": "~5.9.3"

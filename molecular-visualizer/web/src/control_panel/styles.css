@@ -1,0 +1,30 @@
+/* Plugin-owned layout for visualizer-specific control panel blocks. */
+
+.axes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.cp-form-axes {
+  grid-template-columns: max-content auto auto minmax(0, 1fr);
+}
+
+.cp-form-volume {
+  grid-template-columns: max-content max-content max-content;
+  justify-content: start;
+}
+
+.cp-isosurface-tree {
+  width: 100%;
+  min-height: 125px;
+  max-height: 125px;
+  overflow: auto;
+  min-width: 0;
+}
+
+.cp-isosurface-tree .mircmd-tree {
+  width: 100%;
+  min-height: 125px;
+  max-height: 125px;
+}

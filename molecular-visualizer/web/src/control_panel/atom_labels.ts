@@ -7,9 +7,12 @@
  */
 
 import {
-  controlsStyles,
+  applyControlStyles,
   createButton,
   createCheckbox,
+  createForm,
+  createLabeledRow,
+  createSliderRow,
 } from "@mircmd/ui-controls";
 import type { Cleanup, ControlPanelBlock } from "../program_context";
 import {
@@ -17,9 +20,6 @@ import {
   type MolecularVisualizerController,
 } from "../controller";
 import type { VisualizerState } from "../wasm_types";
-import { createForm, createLabeledRow } from "./form_row";
-import { createSliderRow } from "./slider_row";
-import styles from "./styles.css";
 
 export function createAtomLabelsBlock(
   controller: MolecularVisualizerController,
@@ -29,17 +29,17 @@ export function createAtomLabelsBlock(
     title: "Atom labels",
     initiallyExpanded: false,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
-      surface.addStyles(styles);
+      applyControlStyles(surface);
 
       const form = createForm();
       let disposed = false;
       let applying = false;
 
-      const initial = controller.getSnapshot().atom_labels;
+      const snapshot = await controller.getSnapshot();
+      const initial = snapshot.atom_labels;
 
       const showGroup = document.createElement("div");
-      showGroup.className = "cp-inline-group";
+      showGroup.className = "mircmd-inline-group";
       const symbol = createCheckbox({
         label: "Symbol",
         checked: initial.symbol_visible,
@@ -102,7 +102,7 @@ export function createAtomLabelsBlock(
       });
 
       const toggleGroup = document.createElement("div");
-      toggleGroup.className = "cp-inline-group";
+      toggleGroup.className = "mircmd-inline-group";
       const toggleAll = createButton({
         label: "All",
         onClick: () => {
@@ -130,7 +130,7 @@ export function createAtomLabelsBlock(
         spanControls: true,
       });
 
-      const applySnapshot = (snapshot: VisualizerState = controller.getSnapshot()) => {
+      const applySnapshot = (snapshot: VisualizerState) => {
         if (disposed || context.signal.aborted) return;
         const labels = snapshot.atom_labels;
         applying = true;
@@ -147,7 +147,7 @@ export function createAtomLabelsBlock(
       form.append(showRow.root, sizeRow.root, offsetRow.root, toggleRow.root);
       surface.root.appendChild(form);
 
-      applySnapshot();
+      applySnapshot(snapshot);
 
       const unsubscribe = controller.subscribe((snapshot, changedBlocks) => {
         if (disposed || context.signal.aborted) return;

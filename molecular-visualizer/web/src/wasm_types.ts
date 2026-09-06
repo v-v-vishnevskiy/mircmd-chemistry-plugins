@@ -75,6 +75,13 @@ export interface CoordinateAxesState {
 export interface AppearanceState {
   background: Rgba;
   style: string;
+  readonly style_names: string[];
+}
+
+export interface RenderedImage {
+  width: number;
+  height: number;
+  readonly data: Uint8Array;
 }
 
 export interface VisualizerState {
@@ -99,33 +106,69 @@ export interface MolecularVisualizerInstance {
   set_selected_atom_labels_visible(value: boolean): void;
   toggle_all_atom_labels_visible(): void;
   toggle_selected_atom_labels_visible(): void;
-  new_cursor_position(x: number, y: number): Promise<AtomInfo | null>;
-  toggle_atom_selection(x: number, y: number): Promise<void>;
-  toggle_projection(): Promise<void>;
+  start_pick(x: number, y: number): Promise<number>;
+  apply_hover(atom_index: number): AtomInfo | undefined;
+  apply_selection(atom_index: number): void;
+  toggle_projection(): void;
   get_state(): VisualizerState;
-  set_coordinate_axes_visible(value: boolean): Promise<void>;
-  set_coordinate_axes_labels_visible(value: boolean): Promise<void>;
-  set_coordinate_axes_both_directions(value: boolean): Promise<void>;
-  set_coordinate_axes_use_origin(value: boolean): Promise<void>;
-  set_coordinate_axes_length(value: number): Promise<void>;
-  adjust_coordinate_axes_length(): Promise<void>;
-  set_coordinate_axes_thickness(value: number): Promise<void>;
-  set_coordinate_axes_labels_size(value: number): Promise<void>;
+  width(): number;
+  height(): number;
+  add_isosurface(
+    value: number,
+    r1: number,
+    g1: number,
+    b1: number,
+    a1: number,
+    r2: number,
+    g2: number,
+    b2: number,
+    a2: number,
+    inverse: boolean,
+  ): void;
+  set_isosurface_color(id: number, r: number, g: number, b: number, a: number): void;
+  set_isosurface_visible(
+    id: number,
+    visible: boolean,
+    apply_to_children: boolean,
+    apply_to_parents: boolean,
+  ): void;
+  remove_isosurface(id: number): void;
+  set_background_color(r: number, g: number, b: number, a: number): void;
+  set_style(name: string): void;
+  set_next_style(): void;
+  set_prev_style(): void;
+  render_to_image(
+    width: number,
+    height: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+    crop: boolean,
+  ): Promise<RenderedImage>;
+  set_coordinate_axes_visible(value: boolean): void;
+  set_coordinate_axes_labels_visible(value: boolean): void;
+  set_coordinate_axes_both_directions(value: boolean): void;
+  set_coordinate_axes_use_origin(value: boolean): void;
+  set_coordinate_axes_length(value: number): void;
+  adjust_coordinate_axes_length(): void;
+  set_coordinate_axes_thickness(value: number): void;
+  set_coordinate_axes_labels_size(value: number): void;
   set_coordinate_axis_color(
     axis: string,
     r: number,
     g: number,
     b: number,
     a: number,
-  ): Promise<void>;
+  ): void;
   set_coordinate_axis_label_color(
     axis: string,
     r: number,
     g: number,
     b: number,
     a: number,
-  ): Promise<void>;
-  set_coordinate_axis_text(axis: string, text: string): Promise<void>;
+  ): void;
+  set_coordinate_axis_text(axis: string, text: string): void;
   render(): void;
   // TODO: free(): void;
 }

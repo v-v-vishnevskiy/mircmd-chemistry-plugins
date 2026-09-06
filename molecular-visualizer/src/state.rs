@@ -1,8 +1,7 @@
-use js_sys::Array;
-use wasm_bindgen::prelude::*;
+use serde::Serialize;
+use wasm_bindgen::JsValue;
 
-#[wasm_bindgen]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct Rgba {
     pub r: f32,
     pub g: f32,
@@ -16,8 +15,7 @@ impl Rgba {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct Transform {
     pub pitch: f32,
     pub yaw: f32,
@@ -26,8 +24,7 @@ pub struct Transform {
     pub perspective: bool,
 }
 
-#[wasm_bindgen]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct AtomLabels {
     pub symbol_visible: bool,
     pub number_visible: bool,
@@ -35,8 +32,7 @@ pub struct AtomLabels {
     pub offset: f32,
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Surface {
     pub id: u32,
     pub inverted: bool,
@@ -55,26 +51,16 @@ impl Surface {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct SurfaceGroup {
     pub id: u32,
-    pub value: f32,
+    pub value: f64,
     pub visible: bool,
-    #[wasm_bindgen(skip)]
-    surfaces: Vec<Surface>,
-}
-
-#[wasm_bindgen]
-impl SurfaceGroup {
-    #[wasm_bindgen(getter)]
-    pub fn surfaces(&self) -> Array {
-        self.surfaces.iter().cloned().map(JsValue::from).collect()
-    }
+    pub surfaces: Vec<Surface>,
 }
 
 impl SurfaceGroup {
-    pub(crate) fn new(id: u32, value: f32, visible: bool, surfaces: Vec<Surface>) -> Self {
+    pub(crate) fn new(id: u32, value: f64, visible: bool, surfaces: Vec<Surface>) -> Self {
         Self {
             id,
             value,
@@ -84,20 +70,10 @@ impl SurfaceGroup {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CubesAndSurfaces {
     pub available: bool,
-    #[wasm_bindgen(skip)]
-    groups: Vec<SurfaceGroup>,
-}
-
-#[wasm_bindgen]
-impl CubesAndSurfaces {
-    #[wasm_bindgen(getter)]
-    pub fn groups(&self) -> Array {
-        self.groups.iter().cloned().map(JsValue::from).collect()
-    }
+    pub groups: Vec<SurfaceGroup>,
 }
 
 impl CubesAndSurfaces {
@@ -106,21 +82,11 @@ impl CubesAndSurfaces {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CoordinateAxis {
     pub color: Rgba,
     pub label_color: Rgba,
-    #[wasm_bindgen(skip)]
-    label: String,
-}
-
-#[wasm_bindgen]
-impl CoordinateAxis {
-    #[wasm_bindgen(getter)]
-    pub fn label(&self) -> String {
-        self.label.clone()
-    }
+    pub label: String,
 }
 
 impl CoordinateAxis {
@@ -133,8 +99,7 @@ impl CoordinateAxis {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CoordinateAxes {
     pub visible: bool,
     pub labels_visible: bool,
@@ -144,30 +109,9 @@ pub struct CoordinateAxes {
     pub thickness: f32,
     pub font_size: u32,
     pub auto_adjust_available: bool,
-    #[wasm_bindgen(skip)]
-    x: CoordinateAxis,
-    #[wasm_bindgen(skip)]
-    y: CoordinateAxis,
-    #[wasm_bindgen(skip)]
-    z: CoordinateAxis,
-}
-
-#[wasm_bindgen]
-impl CoordinateAxes {
-    #[wasm_bindgen(getter)]
-    pub fn x(&self) -> CoordinateAxis {
-        self.x.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn y(&self) -> CoordinateAxis {
-        self.y.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn z(&self) -> CoordinateAxis {
-        self.z.clone()
-    }
+    pub x: CoordinateAxis,
+    pub y: CoordinateAxis,
+    pub z: CoordinateAxis,
 }
 
 impl CoordinateAxes {
@@ -200,57 +144,30 @@ impl CoordinateAxes {
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Appearance {
     pub background: Rgba,
-    #[wasm_bindgen(skip)]
-    style: String,
-}
-
-#[wasm_bindgen]
-impl Appearance {
-    #[wasm_bindgen(getter)]
-    pub fn style(&self) -> String {
-        self.style.clone()
-    }
+    pub style: String,
+    pub style_names: Vec<String>,
 }
 
 impl Appearance {
-    pub(crate) fn new(background: Rgba, style: String) -> Self {
-        Self { background, style }
+    pub(crate) fn new(background: Rgba, style: String, style_names: Vec<String>) -> Self {
+        Self {
+            background,
+            style,
+            style_names,
+        }
     }
 }
 
-#[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct State {
     pub transform: Transform,
     pub atom_labels: AtomLabels,
-    #[wasm_bindgen(skip)]
-    cubes_and_surfaces: CubesAndSurfaces,
-    #[wasm_bindgen(skip)]
-    coordinate_axes: CoordinateAxes,
-    #[wasm_bindgen(skip)]
-    appearance: Appearance,
-}
-
-#[wasm_bindgen]
-impl State {
-    #[wasm_bindgen(getter)]
-    pub fn cubes_and_surfaces(&self) -> CubesAndSurfaces {
-        self.cubes_and_surfaces.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn coordinate_axes(&self) -> CoordinateAxes {
-        self.coordinate_axes.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn appearance(&self) -> Appearance {
-        self.appearance.clone()
-    }
+    pub cubes_and_surfaces: CubesAndSurfaces,
+    pub coordinate_axes: CoordinateAxes,
+    pub appearance: Appearance,
 }
 
 impl State {
@@ -269,4 +186,16 @@ impl State {
             appearance,
         }
     }
+}
+
+pub(crate) fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(value).map_err(|err| JsValue::from_str(&err.to_string()))
+}
+
+pub(crate) fn rendered_image_to_js(width: u32, height: u32, data: &[u8]) -> Result<JsValue, JsValue> {
+    let object = js_sys::Object::new();
+    js_sys::Reflect::set(&object, &JsValue::from_str("width"), &JsValue::from(width))?;
+    js_sys::Reflect::set(&object, &JsValue::from_str("height"), &JsValue::from(height))?;
+    js_sys::Reflect::set(&object, &JsValue::from_str("data"), &js_sys::Uint8Array::from(data))?;
+    Ok(object.into())
 }

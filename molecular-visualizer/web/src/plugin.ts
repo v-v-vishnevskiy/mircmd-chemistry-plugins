@@ -3,9 +3,10 @@
 
 import type { ProgramPluginContext, ProgramSession } from "./program_context";
 import {
-  MolecularVisualizerController,
-  AxesCommand,
+  AppearanceCommand,
   AtomLabelsCommand,
+  AxesCommand,
+  MolecularVisualizerController,
 } from "./controller";
 import { MolecularVisualizerSession } from "./session";
 import type {
@@ -106,7 +107,7 @@ async function run(
     event.preventDefault();
     event.stopPropagation();
 
-    const state = controller.getSnapshot();
+    const state = await controller.getSnapshot();
 
     ctx.contextMenu.open({
       event,
@@ -301,8 +302,20 @@ async function run(
         {
           label: "Style",
           children: [
-            { label: "Next", shortcut: "Ctrl+Down", action: () => {} },
-            { label: "Previous", shortcut: "Ctrl+Up", action: () => {} },
+            {
+              label: "Next",
+              shortcut: "Ctrl+Down",
+              action: async () => {
+                await controller.execute({ type: AppearanceCommand.SetNextStyle });
+              },
+            },
+            {
+              label: "Previous",
+              shortcut: "Ctrl+Up",
+              action: async () => {
+                await controller.execute({ type: AppearanceCommand.SetPrevStyle });
+              },
+            },
           ],
         },
         { label: "", separator: true },
@@ -393,7 +406,7 @@ async function run(
     return emptyDisposedSession();
   }
 
-  return new MolecularVisualizerSession(controller, cleanup);
+  return new MolecularVisualizerSession(controller, cleanup, ctx);
 }
 
 function emptyDisposedSession(): ProgramSession {

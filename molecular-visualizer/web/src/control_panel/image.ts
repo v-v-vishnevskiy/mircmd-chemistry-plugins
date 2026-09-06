@@ -2,65 +2,81 @@
 // Licensed under the Apache 2.0 License
 
 /**
- * Image export control block (stub reactions; Browse is no-op until host saveFile).
+ * Image export control block.
  */
 
 import {
-  controlsStyles,
+  applyControlStyles,
   createButton,
   createCheckbox,
   createColorField,
+  createForm,
+  createLabeledRow,
   createNumberField,
-  createTextField,
+  createPathField,
+  createSliderRow,
+  wrapFullWidth,
 } from "@mircmd/ui-controls";
-import type { Cleanup, ControlPanelBlock } from "../program_context";
 import { ImageCommand, type MolecularVisualizerController } from "../controller";
-import { createForm, createLabeledRow, wrapFullWidth } from "./form_row";
-import { createSliderRow } from "./slider_row";
-import styles from "./styles.css";
+import type { Cleanup, ControlPanelBlock, ProgramFs } from "../program_context";
+import { hexToRgba, rgbaToHex } from "./color_utils";
+import { DEFAULT_IMAGE_FILENAME, type ImagePanelUi } from "./panel_ui";
 
-function hexToRgba(hex: string): [number, number, number, number] {
-  const raw = hex.replace("#", "");
-  const r = Number.parseInt(raw.slice(0, 2), 16) / 255;
-  const g = Number.parseInt(raw.slice(2, 4), 16) / 255;
-  const b = Number.parseInt(raw.slice(4, 6), 16) / 255;
-  return [r, g, b, 0];
+const IMAGE_FILTERS = [
+  { name: "PNG", extensions: ["png"] },
+  { name: "JPEG", extensions: ["jpg", "jpeg"] },
+];
+
+function joinCwd(cwd: string, filename: string): string {
+  if (!cwd) return filename;
+  const sep = cwd.includes("\\") && !cwd.includes("/") ? "\\" : "/";
+  if (cwd.endsWith("/") || cwd.endsWith("\\")) return `${cwd}${filename}`;
+  return `${cwd}${sep}${filename}`;
+}
+
+async function resolveDefaultFilename(fs: ProgramFs, ui: ImagePanelUi): Promise<void> {
+  if (ui.filename !== DEFAULT_IMAGE_FILENAME) return;
+  ui.filename = joinCwd(await fs.getCwd(), DEFAULT_IMAGE_FILENAME);
 }
 
 export function createImageBlock(
-  _controller: MolecularVisualizerController,
+  controller: MolecularVisualizerController,
+  ui: ImagePanelUi,
 ): ControlPanelBlock {
   return {
     id: "image",
     title: "Image",
     initiallyExpanded: false,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
-      surface.addStyles(styles);
+      applyControlStyles(surface);
 
       const form = createForm();
+      let disposed = false;
+      let saving = false;
 
-      let scaleFactor = 1;
-      let bgColor = "#ffffff";
-      let cropToContent = true;
-      let iParam = 1;
+      if (ui.bgColor === undefined) {
+        const initialBg = (await controller.getSnapshot()).appearance.background;
+        ui.bgColor = rgbaToHex({ ...initialBg, a: 0 }, true);
+      }
+      await resolveDefaultFilename(context.fs, ui);
 
       const scaleRow = createSliderRow({
         label: "Scale factor:",
-        value: scaleFactor,
+        value: ui.scaleFactor,
         min: 0.1,
         max: 20,
         step: 0.1,
         decimals: 1,
         onChange: (value) => {
-          scaleFactor = value;
+          ui.scaleFactor = value;
         },
       });
 
       const bg = createColorField({
-        value: bgColor,
+        value: ui.bgColor,
+        alpha: true,
         onChange: (value) => {
-          bgColor = value;
+          ui.bgColor = value;
         },
       });
       const bgRow = createLabeledRow({
@@ -70,13 +86,11 @@ export function createImageBlock(
       });
 
       const crop = createCheckbox({
-        label: "",
-        checked: cropToContent,
+        checked: ui.cropToContent,
         onChange: (value) => {
-          cropToContent = value;
+          ui.cropToContent = value;
         },
       });
-      crop.root.replaceChildren(crop.input);
       const cropRow = createLabeledRow({
         label: "Crop to content:",
         control: crop.root,
@@ -84,12 +98,12 @@ export function createImageBlock(
       });
 
       const iStarts = createNumberField({
-        value: iParam,
+        value: ui.iParam,
         min: 1,
         max: 100000,
         step: 1,
         onChange: (value) => {
-          iParam = Math.min(100000, Math.max(1, Math.round(value || 1)));
+          ui.iParam = Math.min(100000, Math.max(1, Math.round(value || 1)));
         },
       });
       const iRow = createLabeledRow({
@@ -98,37 +112,43 @@ export function createImageBlock(
         spanControls: true,
       });
 
-      const path = createTextField({
-        value: "%n_%i.png",
+      const path = createPathField({
+        value: ui.filename,
         placeholder: "path template",
-      });
-      const browse = createButton({
-        label: "Browse...",
-        onClick: () => {
-          // Stub: host save dialog / saveFile capability comes later.
+        onInput: (value) => {
+          ui.filename = value;
+        },
+        onBrowse: async () => {
+          const selected = await context.fs.showSaveDialog({
+            defaultPath: ui.filename,
+            filters: IMAGE_FILTERS,
+          });
+          if (selected) ui.filename = selected;
+          return selected;
         },
       });
-      const pathRow = document.createElement("div");
-      pathRow.style.display = "grid";
-      pathRow.style.gridTemplateColumns = "1fr auto";
-      pathRow.style.gap = "8px";
-      pathRow.style.alignItems = "center";
-      pathRow.append(path.root, browse.root);
 
       const save = createButton({
         label: "Save",
         onClick: () => {
-          if (context.signal.aborted) return;
-          void context.dispatch({
-            type: ImageCommand.Save,
-            payload: {
-              t_filename: path.input.value,
-              scale_factor: scaleFactor,
-              bg_color: hexToRgba(bgColor),
-              crop_to_content: cropToContent,
-              i_param: iParam,
-            },
-          });
+          if (disposed || saving || context.signal.aborted) return;
+          saving = true;
+          save.setDisabled(true);
+          void context
+            .dispatch({
+              type: ImageCommand.Save,
+              payload: {
+                t_filename: ui.filename,
+                scale_factor: ui.scaleFactor,
+                bg_color: hexToRgba(ui.bgColor ?? "#00000000", 0),
+                crop_to_content: ui.cropToContent,
+                i_param: ui.iParam,
+              },
+            })
+            .finally(() => {
+              saving = false;
+              if (!disposed) save.setDisabled(false);
+            });
         },
       });
 
@@ -137,18 +157,18 @@ export function createImageBlock(
         bgRow.root,
         cropRow.root,
         iRow.root,
-        wrapFullWidth(pathRow),
+        wrapFullWidth(path.root),
         wrapFullWidth(save.root),
       );
       surface.root.appendChild(form);
 
       return () => {
+        disposed = true;
         scaleRow.destroy();
         bg.destroy();
         crop.destroy();
         iStarts.destroy();
         path.destroy();
-        browse.destroy();
         save.destroy();
         bgRow.destroy();
         cropRow.destroy();

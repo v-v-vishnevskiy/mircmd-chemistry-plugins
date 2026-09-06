@@ -5,7 +5,7 @@
  * Control Panel for cartesian editor (General / Decimals).
  */
 
-import { controlsStyles, createNumberField } from "@mircmd/ui-controls";
+import { applyControlStyles, createNumberField } from "@mircmd/ui-controls";
 import type { ControlPanelBlock, ControlPanelContribution, Cleanup } from "./program_context";
 
 export const CARTESIAN_EDITOR_BROADCAST_KEY = "mircmd:cartesian-editor:v1";
@@ -26,7 +26,7 @@ export function createCartesianControlPanel(
     title: "General",
     initiallyExpanded: true,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
+      applyControlStyles(surface);
 
       const field = createNumberField({
         label: "Decimals",

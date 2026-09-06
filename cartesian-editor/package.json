@@ -8,7 +8,8 @@
     "watch": "esbuild src/plugin.ts --bundle --format=esm --outfile=dist/plugin.js --watch --loader:.css=text"
   },
   "dependencies": {
-    "@mircmd/ui-controls": "file:../shared/ui-controls"
+    "@mircmd/extensions-api": "file:../../mircmd-extensions-api",
+    "@mircmd/ui-controls": "file:../../mircmd-ui-controls"
   },
   "devDependencies": {
     "esbuild": "^0.24.2",

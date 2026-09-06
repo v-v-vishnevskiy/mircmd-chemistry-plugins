@@ -65,6 +65,10 @@ impl Molecule {
                 "Atom not found for atomic number: {}",
                 atomic_coordinates.atomic_num[i]
             ))?;
+            let atom_radius = config
+                .style
+                .atom_radius(atomic_coordinates.atomic_num[i])
+                .unwrap_or(atom.radius);
 
             let position = Vec3::new(
                 atomic_coordinates.x[i] as f32,
@@ -72,13 +76,13 @@ impl Molecule {
                 atomic_coordinates.z[i] as f32,
             );
 
-            radius = radius.max((position - center).length_squared() + atom.radius);
+            radius = radius.max((position - center).length_squared() + atom_radius);
 
             atoms.push(Atom::new(
                 (i + 1) as i32,
                 atomic_coordinates.atomic_num[i],
                 position,
-                atom.radius,
+                atom_radius,
                 atom.color,
                 id_to_color(i + 1),
                 config.style.selected_atom.color,
@@ -275,6 +279,62 @@ impl Molecule {
         true
     }
 
+    pub fn apply_style(&mut self, device: &wgpu::Device, font_atlas: &super::core::FontAtlas, config: &Config) {
+        self.apply_atoms_style(config);
+        self.rebuild_bonds(config);
+        self.rebuild_instance_buffers(device, font_atlas, config);
+    }
+
+    fn apply_atoms_style(&mut self, config: &Config) {
+        for atom in &mut self.atoms {
+            if let Some(def) = config.style.atoms.get(&atom.atomic_number) {
+                atom.color = def.color;
+                atom.radius = config.style.atom_radius(atom.atomic_number).unwrap_or(def.radius);
+            }
+            atom.bounding_sphere_color = config.style.selected_atom.color;
+            atom.bounding_sphere_scale_factor = config.style.selected_atom.scale_factor;
+        }
+    }
+
+    fn rebuild_bonds(&mut self, config: &Config) {
+        let bond_thickness = config.style.bond.thickness;
+        let mut bonds = Vec::new();
+        let bonds_list = bonds::build(&self.data, config.style.geom_bond_tolerance);
+        for bond in bonds_list {
+            let atom_1 = &self.atoms[bond.atom_index_1];
+            let atom_2 = &self.atoms[bond.atom_index_2];
+            let computed_bonds = get_bonds(
+                atom_1.position,
+                atom_1.radius,
+                atom_1.color,
+                atom_2.position,
+                atom_2.radius,
+                atom_2.color,
+            );
+            for item in computed_bonds {
+                bonds.push(Bond::new(item.0, item.1, bond_thickness, item.2, item.3));
+            }
+        }
+        self.bonds = bonds;
+    }
+
+    fn rebuild_instance_buffers(
+        &mut self,
+        device: &wgpu::Device,
+        font_atlas: &super::core::FontAtlas,
+        config: &Config,
+    ) {
+        let (atoms, labels, label_count, selections, selected_count) =
+            Self::create_atoms_instance_buffers(&self.atoms, device, font_atlas, config);
+        self.atoms_instance_buffer = InstanceBuffer::new(atoms, self.atoms.len());
+        self.atom_labels_instance_buffer = InstanceBuffer::new(labels, label_count);
+        self.atom_selections_instance_buffer = InstanceBuffer::new(selections, selected_count);
+        self.bonds_instance_buffer = InstanceBuffer::new(
+            Self::create_bonds_instance_buffer(&self.bonds, device),
+            self.bonds.len(),
+        );
+    }
+
     pub fn max_coordinate(&self) -> f32 {
         self.atoms.iter().fold(0.0_f32, |acc, atom| {
             acc.max(atom.position.x.abs())
@@ -321,10 +381,7 @@ impl Molecule {
         if self.selected_atoms.is_empty() {
             return;
         }
-        let all_visible = self
-            .selected_atoms
-            .iter()
-            .all(|&index| self.atoms[index].label_visible);
+        let all_visible = self.selected_atoms.iter().all(|&index| self.atoms[index].label_visible);
         let next = !all_visible;
         for &index in &self.selected_atoms {
             self.atoms[index].label_visible = next;

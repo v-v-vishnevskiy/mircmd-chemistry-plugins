@@ -4,6 +4,7 @@ mod bonds;
 mod config;
 mod coordinate_axes;
 pub mod core;
+mod image_export;
 mod isosurface;
 mod molecule;
 mod renderer;

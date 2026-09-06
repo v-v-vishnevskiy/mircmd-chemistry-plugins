@@ -1,27 +1,32 @@
 use super::types::Color;
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub struct Atom {
     pub radius: f32,
     pub color: Color,
 }
 
+#[derive(Clone)]
 pub struct SelectedAtom {
     pub color: Color,
     pub scale_factor: f32,
 }
 
-enum BondColorMode {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BondColorMode {
     OwnColor,
     AtomColor,
 }
 
+#[derive(Clone)]
 pub struct Bond {
     pub thickness: f32,
     pub color_mode: BondColorMode,
     pub color: Color,
 }
 
+#[derive(Clone)]
 pub struct AtomLabel {
     pub color: Color,
     pub size: f32,
@@ -31,7 +36,16 @@ pub struct AtomLabel {
     pub number_visible: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AtomRadiusMode {
+    Atomic,
+    Bond,
+}
+
+#[derive(Clone)]
 pub struct Style {
+    pub name: String,
+    pub atom_radius_mode: AtomRadiusMode,
     pub background_color: Color,
     pub atoms: HashMap<i32, Atom>,
     pub selected_atom: SelectedAtom,
@@ -886,6 +900,8 @@ impl Style {
         );
 
         Self {
+            name: String::from("Ball and Stick"),
+            atom_radius_mode: AtomRadiusMode::Atomic,
             background_color: Color::new(0.133, 0.133, 0.133, 1.0),
             atoms,
             selected_atom: SelectedAtom {
@@ -908,14 +924,73 @@ impl Style {
             },
         }
     }
+
+    pub fn stick_only() -> Self {
+        let mut style = Self::new();
+        style.name = String::from("Stick Only");
+        style.atom_radius_mode = AtomRadiusMode::Bond;
+        style.selected_atom.scale_factor = 3.0;
+        style
+    }
+
+    pub fn atom_radius(&self, atomic_number: i32) -> Option<f32> {
+        match self.atom_radius_mode {
+            AtomRadiusMode::Atomic => self.atoms.get(&atomic_number).map(|atom| atom.radius),
+            AtomRadiusMode::Bond => Some(self.bond.thickness),
+        }
+    }
 }
 
 pub struct Config {
     pub style: Style,
+    styles: Vec<Style>,
 }
 
 impl Config {
     pub fn new() -> Self {
-        Self { style: Style::new() }
+        let ball_and_stick = Style::new();
+        let stick_only = Style::stick_only();
+        Self {
+            style: ball_and_stick.clone(),
+            styles: vec![ball_and_stick, stick_only],
+        }
+    }
+
+    pub fn style_names(&self) -> Vec<String> {
+        self.styles.iter().map(|style| style.name.clone()).collect()
+    }
+
+    pub fn set_style(&mut self, name: &str) {
+        let mut next = self
+            .styles
+            .iter()
+            .find(|style| style.name == name)
+            .cloned()
+            .unwrap_or_else(|| self.styles[0].clone());
+        next.background_color = self.style.background_color;
+        next.atom_label = self.style.atom_label.clone();
+        self.style = next;
+    }
+
+    pub fn set_next_style(&mut self) -> bool {
+        self.shift_style(1)
+    }
+
+    pub fn set_prev_style(&mut self) -> bool {
+        self.shift_style(-1)
+    }
+
+    fn shift_style(&mut self, delta: isize) -> bool {
+        let current = self
+            .styles
+            .iter()
+            .position(|style| style.name == self.style.name)
+            .unwrap_or(0);
+        let next = current.saturating_add_signed(delta).min(self.styles.len() - 1);
+        if next == current {
+            return false;
+        }
+        self.set_style(&self.styles[next].name.clone());
+        true
     }
 }

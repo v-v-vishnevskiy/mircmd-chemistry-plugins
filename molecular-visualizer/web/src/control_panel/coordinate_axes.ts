@@ -8,23 +8,26 @@
  */
 
 import {
-  controlsStyles,
+  applyControlStyles,
   createButton,
   createCheckbox,
   createColorField,
+  createForm,
+  createSliderRow,
   createTextField,
+  wrapFullWidth,
   type CheckboxControl,
   type ColorFieldControl,
+  type SliderRowControl,
   type TextFieldControl,
 } from "@mircmd/ui-controls";
-import type { Cleanup, ControlPanelBlock } from "../program_context";
 import {
   AxesCommand,
   type MolecularVisualizerController,
 } from "../controller";
-import type { Rgba } from "../wasm_types";
-import { createForm, wrapFullWidth } from "./form_row";
-import { createSliderRow, type SliderRowControl } from "./slider_row";
+import type { Cleanup, ControlPanelBlock } from "../program_context";
+import type { CoordinateAxesState } from "../wasm_types";
+import { hexToRgba, rgbaToHex } from "./color_utils";
 import styles from "./styles.css";
 
 type AxisId = "x" | "y" | "z";
@@ -37,22 +40,6 @@ type AxisRow = {
   destroy(): void;
 };
 
-function hexToRgba(hex: string): [number, number, number, number] {
-  const raw = hex.replace("#", "");
-  const r = Number.parseInt(raw.slice(0, 2), 16) / 255;
-  const g = Number.parseInt(raw.slice(2, 4), 16) / 255;
-  const b = Number.parseInt(raw.slice(4, 6), 16) / 255;
-  return [r, g, b, 1];
-}
-
-function rgbaToHex(color: Rgba): string {
-  const toByte = (v: number) =>
-    Math.round(Math.min(1, Math.max(0, v)) * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${toByte(color.r)}${toByte(color.g)}${toByte(color.b)}`;
-}
-
 function createAxisRow(
   axis: AxisId,
   labelText: string,
@@ -62,10 +49,10 @@ function createAxisRow(
   dispatch: (type: string, payload: unknown) => void,
 ): AxisRow {
   const root = document.createElement("div");
-  root.className = "cp-form-row";
+  root.className = "mircmd-form-row";
 
   const label = document.createElement("span");
-  label.className = "cp-label";
+  label.className = "mircmd-label";
   label.textContent = labelText;
 
   const axisColorField = createColorField({
@@ -111,13 +98,12 @@ export function createCoordinateAxesBlock(
     title: "Coordinate axes",
     initiallyExpanded: false,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
-      surface.addStyles(styles);
+      applyControlStyles(surface, styles);
 
       let applying = false;
       let disposed = false;
 
-      const initial = controller.getSnapshot().coordinate_axes;
+      const initial = (await controller.getSnapshot()).coordinate_axes;
 
       const dispatchCmd = (type: string, payload: unknown) => {
         if (applying || disposed || context.signal.aborted) return;
@@ -125,12 +111,34 @@ export function createCoordinateAxesBlock(
       };
 
       const stack = document.createElement("div");
-      stack.className = "cp-stack";
+      stack.className = "mircmd-stack";
 
-      const show = createCheckbox({ label: "Show" });
-      const labels = createCheckbox({ label: "Labels" });
-      const both = createCheckbox({ label: "Both directions" });
-      const center = createCheckbox({ label: "Center" });
+      let dependentCheckboxes: CheckboxControl[] = [];
+      let setExtrasEnabled: (enabled: boolean) => void = () => {};
+
+      const labels = createCheckbox({
+        label: "Labels",
+        onChange: (checked) => dispatchCmd(AxesCommand.SetLabelsVisible, { value: checked }),
+      });
+      const both = createCheckbox({
+        label: "Both directions",
+        onChange: (checked) => dispatchCmd(AxesCommand.SetBothDirections, { value: checked }),
+      });
+      const center = createCheckbox({
+        label: "Center",
+        onChange: (checked) => dispatchCmd(AxesCommand.SetUseOrigin, { value: !checked }),
+      });
+      const show = createCheckbox({
+        label: "Show",
+        onChange: (checked) => {
+          dispatchCmd(AxesCommand.SetVisible, { value: checked });
+          if (applying || disposed || context.signal.aborted) return;
+          for (const control of dependentCheckboxes) {
+            control.setDisabled(!checked);
+          }
+          setExtrasEnabled(checked);
+        },
+      });
 
       const checkboxes = document.createElement("div");
       checkboxes.className = "axes-grid";
@@ -187,19 +195,10 @@ export function createCoordinateAxesBlock(
         label: "Adjust length",
         onClick: () => {
           if (applying || disposed || context.signal.aborted) return;
-          void (async () => {
-            await context.dispatch({
-              type: AxesCommand.AdjustLength,
-              payload: {},
-            });
-            if (disposed || context.signal.aborted) return;
-            applying = true;
-            try {
-              lengthRow.setValue(controller.getSnapshot().coordinate_axes.length);
-            } finally {
-              applying = false;
-            }
-          })();
+          void context.dispatch({
+            type: AxesCommand.AdjustLength,
+            payload: {},
+          });
         },
       });
 
@@ -244,21 +243,21 @@ export function createCoordinateAxesBlock(
       stack.append(checkboxes, sliderForm, axesForm);
       surface.root.appendChild(stack);
 
-      const dependentCheckboxes: CheckboxControl[] = [labels, both, center];
+      dependentCheckboxes = [labels, both, center];
       const extraControls = [
         ...sliderRows,
         ...axisRows.flatMap((row) => [row.axisColor, row.labelColor, row.text]),
       ];
 
-      const setExtrasEnabled = (enabled: boolean) => {
+      setExtrasEnabled = (enabled: boolean) => {
         for (const control of extraControls) {
           control.setDisabled(!enabled);
         }
       };
 
-      const applySnapshot = () => {
+      const applySnapshot = (snapshot: { coordinate_axes: CoordinateAxesState }) => {
         if (disposed || context.signal.aborted) return;
-        const axes = controller.getSnapshot().coordinate_axes;
+        const axes = snapshot.coordinate_axes;
         applying = true;
         try {
           show.setChecked(axes.visible);
@@ -272,6 +271,9 @@ export function createCoordinateAxesBlock(
           }
           setExtrasEnabled(axes.visible);
           adjust.setDisabled(!axes.visible || !axes.auto_adjust_available);
+          lengthRow.setValue(axes.length);
+          thicknessRow.setValue(axes.thickness);
+          fontSizeRow.setValue(axes.font_size);
           const byAxis = [
             { row: axisX, state: axes.x },
             { row: axisY, state: axes.y },
@@ -280,55 +282,24 @@ export function createCoordinateAxesBlock(
           for (const { row, state } of byAxis) {
             row.axisColor.setValue(rgbaToHex(state.color));
             row.labelColor.setValue(rgbaToHex(state.label_color));
+            row.text.setValue(state.label);
           }
         } finally {
           applying = false;
         }
       };
 
-      applySnapshot();
+      applySnapshot({ coordinate_axes: initial });
 
-      const unsubscribe = controller.subscribe((_snapshot, changedBlocks) => {
+      const unsubscribe = controller.subscribe((snapshot, changedBlocks) => {
         if (disposed || context.signal.aborted) return;
         if (
           changedBlocks.length === 0 ||
           changedBlocks.includes("coordinate_axes")
         ) {
-          applySnapshot();
+          applySnapshot(snapshot);
         }
       });
-
-      const bind = (
-        control: CheckboxControl,
-        type: string,
-        mapValue: (checked: boolean) => boolean = (v) => v,
-      ) => {
-        const onChange = () => {
-          if (applying || disposed || context.signal.aborted) return;
-          void context.dispatch({
-            type,
-            payload: { value: mapValue(control.input.checked) },
-          });
-        };
-        control.input.addEventListener("change", onChange);
-        return () => control.input.removeEventListener("change", onChange);
-      };
-
-      const unbindShow = bind(show, AxesCommand.SetVisible);
-      const unbindLabels = bind(labels, AxesCommand.SetLabelsVisible);
-      const unbindBoth = bind(both, AxesCommand.SetBothDirections);
-      // UI "Center" checked -> use_origin = false
-      const unbindCenter = bind(center, AxesCommand.SetUseOrigin, (checked) => !checked);
-
-      const onShowChange = () => {
-        if (applying || disposed) return;
-        const enabled = show.input.checked;
-        for (const control of dependentCheckboxes) {
-          control.setDisabled(!enabled);
-        }
-        setExtrasEnabled(enabled);
-      };
-      show.input.addEventListener("change", onShowChange);
 
       const onAbort = () => {
         disposed = true;
@@ -338,12 +309,7 @@ export function createCoordinateAxesBlock(
       return () => {
         disposed = true;
         context.signal.removeEventListener("abort", onAbort);
-        show.input.removeEventListener("change", onShowChange);
         unsubscribe();
-        unbindShow();
-        unbindLabels();
-        unbindBoth();
-        unbindCenter();
         show.destroy();
         labels.destroy();
         both.destroy();

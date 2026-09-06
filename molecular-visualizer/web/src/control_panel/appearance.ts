@@ -2,50 +2,54 @@
 // Licensed under the Apache 2.0 License
 
 /**
- * Appearance control block (stub reactions).
+ * Appearance control block — background color and named styles.
  */
 
 import {
-  controlsStyles,
+  applyControlStyles,
   createColorField,
+  createForm,
+  createLabeledRow,
   createSelect,
 } from "@mircmd/ui-controls";
-import type { Cleanup, ControlPanelBlock } from "../program_context";
 import {
   AppearanceCommand,
   type MolecularVisualizerController,
 } from "../controller";
-import { createForm, createLabeledRow } from "./form_row";
-import styles from "./styles.css";
+import type { Cleanup, ControlPanelBlock } from "../program_context";
+import type { VisualizerState } from "../wasm_types";
+import { hexToRgba, rgbaToHex } from "./color_utils";
 
-function hexToRgba(hex: string): [number, number, number, number] {
-  const raw = hex.replace("#", "");
-  const r = Number.parseInt(raw.slice(0, 2), 16) / 255;
-  const g = Number.parseInt(raw.slice(2, 4), 16) / 255;
-  const b = Number.parseInt(raw.slice(4, 6), 16) / 255;
-  return [r, g, b, 1];
+function styleOptions(snapshot: VisualizerState) {
+  const names = snapshot.appearance.style_names ?? [];
+  const options = names.map((name) => ({ value: name, label: name }));
+  if (options.length === 0) {
+    return [{ value: snapshot.appearance.style, label: snapshot.appearance.style }];
+  }
+  return options;
 }
 
 export function createAppearanceBlock(
-  _controller: MolecularVisualizerController,
+  controller: MolecularVisualizerController,
 ): ControlPanelBlock {
   return {
     id: "appearance",
     title: "Appearance",
     initiallyExpanded: false,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
-      surface.addStyles(styles);
+      applyControlStyles(surface);
 
-      const form = createForm();
+      let disposed = false;
+      let applying = false;
+      const initial = await controller.getSnapshot();
 
       const bg = createColorField({
-        value: "#ffffff",
+        value: rgbaToHex(initial.appearance.background),
         onChange: (value) => {
-          if (context.signal.aborted) return;
+          if (applying || disposed || context.signal.aborted) return;
           void context.dispatch({
             type: AppearanceCommand.SetBgColor,
-            payload: { color: hexToRgba(value) },
+            payload: { color: hexToRgba(value, 1) },
           });
         },
       });
@@ -56,10 +60,10 @@ export function createAppearanceBlock(
       });
 
       const styleSelect = createSelect({
-        value: "Default",
-        options: [{ value: "Default", label: "Default" }],
+        value: initial.appearance.style,
+        options: styleOptions(initial),
         onChange: (name) => {
-          if (context.signal.aborted) return;
+          if (applying || disposed || context.signal.aborted) return;
           void context.dispatch({
             type: AppearanceCommand.SetStyle,
             payload: { name },
@@ -72,10 +76,33 @@ export function createAppearanceBlock(
         spanControls: true,
       });
 
+      const form = createForm();
       form.append(bgRow.root, styleRow.root);
       surface.root.appendChild(form);
 
+      const applySnapshot = (snapshot: VisualizerState) => {
+        if (disposed || context.signal.aborted) return;
+        applying = true;
+        try {
+          bg.setValue(rgbaToHex(snapshot.appearance.background));
+          styleSelect.setOptions(styleOptions(snapshot));
+          styleSelect.setValue(snapshot.appearance.style);
+        } finally {
+          applying = false;
+        }
+      };
+
+      applySnapshot(initial);
+      const unsubscribe = controller.subscribe((snapshot, changedBlocks) => {
+        if (disposed || context.signal.aborted) return;
+        if (changedBlocks.length === 0 || changedBlocks.includes("appearance")) {
+          applySnapshot(snapshot);
+        }
+      });
+
       return () => {
+        disposed = true;
+        unsubscribe();
         bg.destroy();
         styleSelect.destroy();
         bgRow.destroy();

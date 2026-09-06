@@ -6,19 +6,21 @@
  * View starts expanded.
  */
 
-import type { ControlPanelContribution } from "../program_context";
 import type { MolecularVisualizerController } from "../controller";
-import { createCoordinateAxesBlock } from "./coordinate_axes";
-import { createViewBlock } from "./view";
-import { createAtomLabelsBlock } from "./atom_labels";
+import type { ControlPanelContribution } from "../program_context";
 import { createAppearanceBlock } from "./appearance";
+import { createAtomLabelsBlock } from "./atom_labels";
+import { createCoordinateAxesBlock } from "./coordinate_axes";
 import { createCubesAndSurfacesBlock } from "./cubes_and_surfaces";
 import { createImageBlock } from "./image";
+import type { PanelUi } from "./panel_ui";
+import { createViewBlock } from "./view";
 
 export const MOLECULAR_VISUALIZER_BROADCAST_KEY = "mircmd:molecular-visualizer:v1";
 
 export function createControlPanelContribution(
   controller: MolecularVisualizerController,
+  panelUi: PanelUi,
 ): ControlPanelContribution {
   return {
     title: "Molecular Visualizer",
@@ -27,8 +29,8 @@ export function createControlPanelContribution(
     blocks: [
       createViewBlock(controller),
       createAtomLabelsBlock(controller),
-      createCubesAndSurfacesBlock(controller),
-      createImageBlock(controller),
+      createCubesAndSurfacesBlock(controller, panelUi.cubes),
+      createImageBlock(controller, panelUi.image),
       createCoordinateAxesBlock(controller),
       createAppearanceBlock(controller),
     ],

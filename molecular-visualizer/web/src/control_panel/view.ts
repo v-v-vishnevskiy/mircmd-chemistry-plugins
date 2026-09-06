@@ -5,13 +5,17 @@
  * View control block — rotation / scale / reset.
  */
 
-import { controlsStyles, createButton } from "@mircmd/ui-controls";
-import type { Cleanup, ControlPanelBlock } from "../program_context";
+import {
+  applyControlStyles,
+  createButton,
+  createForm,
+  createSliderRow,
+  wrapFullWidth,
+  type SliderRowControl,
+} from "@mircmd/ui-controls";
 import { ViewCommand, type MolecularVisualizerController } from "../controller";
+import type { Cleanup, ControlPanelBlock } from "../program_context";
 import type { VisualizerState } from "../wasm_types";
-import { createForm, wrapFullWidth } from "./form_row";
-import { createSliderRow, type SliderRowControl } from "./slider_row";
-import styles from "./styles.css";
 
 type RotationAxis = "pitch" | "yaw" | "roll";
 
@@ -23,14 +27,14 @@ export function createViewBlock(
     title: "View",
     initiallyExpanded: true,
     async mount(surface, context): Promise<Cleanup | void> {
-      surface.addStyles(controlsStyles);
-      surface.addStyles(styles);
+      applyControlStyles(surface);
 
       const form = createForm();
       let disposed = false;
       let applying = false;
 
-      const initial = controller.getSnapshot().transform;
+      const snapshot = await controller.getSnapshot();
+      const initial = snapshot.transform;
       let pitch = initial.pitch;
       let yaw = initial.yaw;
       let roll = initial.roll;
@@ -124,7 +128,7 @@ export function createViewBlock(
 
       const rows: SliderRowControl[] = [pitchRow, yawRow, rollRow, scaleRow];
 
-      const applySnapshot = (snapshot: VisualizerState = controller.getSnapshot()) => {
+      const applySnapshot = (snapshot: VisualizerState) => {
         if (disposed || context.signal.aborted) return;
         const t = snapshot.transform;
         applying = true;
@@ -187,7 +191,7 @@ export function createViewBlock(
       );
       surface.root.appendChild(form);
 
-      applySnapshot();
+      applySnapshot(snapshot);
 
       const unsubscribe = controller.subscribe((snapshot, changedBlocks) => {
         if (disposed || context.signal.aborted) return;
